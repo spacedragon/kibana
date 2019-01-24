@@ -51,7 +51,6 @@ const BlameContainer = styled.div`
   flex-grow: 3;
   flex-basis: 400px;
   height: 100%;
-  overflow: auto;
 `;
 
 const DirectoryViewContainer = styled.div`
