@@ -11,22 +11,22 @@ import { RepositoryUtils } from '../../common/repository_utils';
 import { RepositoryConfig, RepositoryUri } from '../../model';
 import { RepositoryIndexInitializer, RepositoryIndexInitializerFactory } from '../indexer';
 import { Logger } from '../log';
-import { CloneWorker, DeleteWorker, IndexWorker } from '../queue';
 import { RepositoryConfigController } from '../repository_config_controller';
 import { RepositoryObjectClient } from '../search';
 import { ServerOptions } from '../server_options';
 import { EsClientWithRequest } from '../utils/esclient_with_request';
 import { CodeServerRouter } from '../security';
+import { CodeServices } from '../distributed/code_services';
+import { RepositoryServiceDefinition } from '../distributed/apis';
 
 export function repositoryRoute(
   server: CodeServerRouter,
-  cloneWorker: CloneWorker,
-  deleteWorker: DeleteWorker,
-  indexWorker: IndexWorker,
+  codeServices: CodeServices,
   repoIndexInitializerFactory: RepositoryIndexInitializerFactory,
   repoConfigController: RepositoryConfigController,
   options: ServerOptions
 ) {
+  const repositoryService = codeServices.serviceFor(RepositoryServiceDefinition);
   // Clone a git repository
   server.route({
     path: '/api/code/repo',
@@ -78,7 +78,8 @@ export function repositoryRoute(
           const payload = {
             url: repoUrl,
           };
-          await cloneWorker.enqueueJob(payload, {});
+          const endpoint = await codeServices.locate(req, repoUrl);
+          await repositoryService.clone(endpoint, payload);
           return repo;
         } catch (error2) {
           const msg = `Issue repository clone request for ${repoUrl} error`;
@@ -118,8 +119,8 @@ export function repositoryRoute(
         const payload = {
           uri: repoUri,
         };
-        await deleteWorker.enqueueJob(payload, {});
-
+        const endpoint = await codeServices.locate(req, repoUri);
+        await repositoryService.delete(endpoint, payload);
         return {};
       } catch (error) {
         const msg = `Issue repository delete request for ${repoUri} error`;
@@ -229,7 +230,8 @@ export function repositoryRoute(
           revision: cloneStatus.revision,
           enforceReindex: reindex,
         };
-        await indexWorker.enqueueJob(payload, {});
+        const endpoint = await codeServices.locate(req, repoUri);
+        await repositoryService.index(endpoint, payload);
         return {};
       } catch (error) {
         const msg = `Index repository ${repoUri} error`;

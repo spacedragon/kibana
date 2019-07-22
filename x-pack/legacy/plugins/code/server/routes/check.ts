@@ -9,9 +9,14 @@ import fetch from 'node-fetch';
 import { Logger } from '../log';
 
 export async function checkCodeNode(url: string, log: Logger, rndStr: string) {
-  const res = await fetch(`${url}/api/code/codeNode?rndStr=${rndStr}`, {});
-  if (res.ok) {
-    return await res.json();
+  try {
+    const res = await fetch(`${url}/api/code/codeNode?rndStr=${rndStr}`, {});
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    // request failed
+    log.error(e);
   }
 
   log.info(`Access code node ${url} failed, try again later.`);

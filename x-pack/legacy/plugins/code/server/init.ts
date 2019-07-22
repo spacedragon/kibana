@@ -9,31 +9,38 @@ import * as _ from 'lodash';
 import { i18n } from '@kbn/i18n';
 
 import { XPackMainPlugin } from '../../xpack_main/xpack_main';
-import { GitOperations } from './git_operations';
-import { LspIndexerFactory, RepositoryIndexInitializerFactory, tryMigrateIndices } from './indexer';
-import { EsClient, Esqueue } from './lib/esqueue';
 import { Logger } from './log';
-import { InstallManager } from './lsp/install_manager';
 import { JAVA } from './lsp/language_servers';
-import { LspService } from './lsp/lsp_service';
-import { CancellationSerivce, CloneWorker, DeleteWorker, IndexWorker, UpdateWorker } from './queue';
-import { RepositoryConfigController } from './repository_config_controller';
-import { RepositoryServiceFactory } from './repository_service_factory';
 import { fileRoute } from './routes/file';
 import { installRoute } from './routes/install';
 import { lspRoute, symbolByQnameRoute } from './routes/lsp';
-import { redirectRoute } from './routes/redirect';
 import { repositoryRoute } from './routes/repository';
 import { documentSearchRoute, repositorySearchRoute, symbolSearchRoute } from './routes/search';
 import { setupRoute } from './routes/setup';
 import { workspaceRoute } from './routes/workspace';
-import { CloneScheduler, IndexScheduler, UpdateScheduler } from './scheduler';
 import { CodeServerRouter } from './security';
 import { ServerOptions } from './server_options';
-import { ServerLoggerFactory } from './utils/server_logger_factory';
-import { EsClientWithInternalRequest } from './utils/esclient_with_internal_request';
 import { checkCodeNode, checkRoute } from './routes/check';
 import { statusRoute } from './routes/status';
+import { CodeServices } from './distributed/code_services';
+import { LocalHandlerAdapter } from './distributed/local_handler_adapter';
+import {
+  GitServiceDefinition,
+  WorkspaceDefinition,
+  LspServiceDefinition,
+  RepositoryServiceDefinition,
+  SetupDefinition,
+  GitServiceDefinitionOption,
+  LspServiceDefinitionOption,
+} from './distributed/apis';
+import { CodeNodeAdapter } from './distributed/multinode/code_node_adapter';
+import { NonCodeNodeAdapter } from './distributed/multinode/non_code_node_adapter';
+import { initWorkers } from './init_workers';
+import { initLocalService } from './init_local';
+import { initEs } from './init_es';
+import { initQueue } from './init_queue';
+import { RepositoryIndexInitializerFactory, tryMigrateIndices } from './indexer';
+import { RepositoryConfigController } from './repository_config_controller';
 
 async function retryUntilAvailable<T>(
   func: () => Promise<T>,
@@ -104,6 +111,8 @@ export function init(server: Server, options: any) {
 
   // @ts-ignore
   const kbnServer = this.kbnServer;
+  const codeServerRouter = new CodeServerRouter(server);
+
   kbnServer.ready().then(async () => {
     const codeNodeUrl = serverOptions.codeNodeUrl;
     const rndString = crypto.randomBytes(20).toString('hex');
@@ -111,139 +120,95 @@ export function init(server: Server, options: any) {
     if (codeNodeUrl) {
       const checkResult = await retryUntilAvailable(
         async () => await checkCodeNode(codeNodeUrl, log, rndString),
-        5000
+        3000
       );
       if (checkResult.me) {
-        await initCodeNode(server, serverOptions, log);
+        const codeServices = new CodeServices(new CodeNodeAdapter(codeServerRouter, log));
+        log.info('Initializing Code plugin as code-node.');
+        await initCodeNode(server, serverOptions, codeServices, log);
       } else {
-        await initNonCodeNode(codeNodeUrl, server, log);
+        await initNonCodeNode(codeNodeUrl, server, serverOptions, log);
       }
     } else {
+      const codeServices = new CodeServices(new LocalHandlerAdapter());
       // codeNodeUrl not set, single node mode
-      await initCodeNode(server, serverOptions, log);
+      log.info('Initializing Code plugin as single-node.');
+      initDevMode(server);
+      await initCodeNode(server, serverOptions, codeServices, log);
     }
   });
 }
 
-async function initNonCodeNode(url: string, server: Server, log: Logger) {
+async function initNonCodeNode(
+  url: string,
+  server: Server,
+  serverOptions: ServerOptions,
+  log: Logger
+) {
   log.info(`Initializing Code plugin as non-code node, redirecting all code requests to ${url}`);
-  redirectRoute(server, url, log);
-}
-
-async function initCodeNode(server: Server, serverOptions: ServerOptions, log: Logger) {
-  // wait until elasticsearch is ready
-  // @ts-ignore
-  await server.plugins.elasticsearch.waitUntilReady();
-
-  log.info('Initializing Code plugin as code-node.');
-  const queueIndex: string = server.config().get('xpack.code.queueIndex');
-  const queueTimeoutMs: number = server.config().get('xpack.code.queueTimeoutMs');
-  const devMode: boolean = server.config().get('env.dev');
-
-  const esClient: EsClient = new EsClientWithInternalRequest(server);
-  const repoConfigController = new RepositoryConfigController(esClient);
-
-  server.injectUiAppVars('code', () => ({
-    enableLangserversDeveloping: devMode,
-  }));
-  // Enable the developing language servers in development mode.
-  if (devMode) {
-    JAVA.downloadUrl = _.partialRight(JAVA!.downloadUrl!, devMode);
-  }
-
-  // Initialize git operations
-  const gitOps = new GitOperations(serverOptions.repoPath);
-
-  const installManager = new InstallManager(server, serverOptions);
-  const lspService = new LspService(
-    '127.0.0.1',
+  const codeServices = new CodeServices(new NonCodeNodeAdapter(url, log));
+  codeServices.registerHandler(GitServiceDefinition, null, GitServiceDefinitionOption);
+  codeServices.registerHandler(RepositoryServiceDefinition, null);
+  codeServices.registerHandler(LspServiceDefinition, null, LspServiceDefinitionOption);
+  codeServices.registerHandler(WorkspaceDefinition, null);
+  codeServices.registerHandler(SetupDefinition, null);
+  const { repoConfigController, repoIndexInitializerFactory } = await initEs(server, log);
+  initRoutes(
+    server,
     serverOptions,
-    gitOps,
-    esClient,
-    installManager,
-    new ServerLoggerFactory(server),
+    codeServices,
+    log,
+    repoIndexInitializerFactory,
     repoConfigController
   );
-  server.events.on('stop', async () => {
-    log.debug('shutdown lsp process');
-    await lspService.shutdown();
-  });
-  // Initialize indexing factories.
-  const lspIndexerFactory = new LspIndexerFactory(lspService, serverOptions, gitOps, esClient, log);
+}
 
-  const repoIndexInitializerFactory = new RepositoryIndexInitializerFactory(esClient, log);
+async function initCodeNode(
+  server: Server,
+  serverOptions: ServerOptions,
+  codeServices: CodeServices,
+  log: Logger
+) {
+  const { esClient, repoConfigController, repoIndexInitializerFactory } = await initEs(server, log);
 
-  // Initialize queue worker cancellation service.
-  const cancellationService = new CancellationSerivce();
+  const { queue } = initQueue(server, log, esClient);
+
+  const { gitOps, lspService } = initLocalService(
+    server,
+    log,
+    serverOptions,
+    codeServices,
+    esClient,
+    repoConfigController
+  );
+
+  initWorkers(server, log, esClient, queue, lspService, gitOps, serverOptions, codeServices);
 
   // Execute index version checking and try to migrate index data if necessary.
   await tryMigrateIndices(esClient, log);
 
-  // Initialize queue.
-  const queue = new Esqueue(queueIndex, {
-    client: esClient,
-    timeout: queueTimeoutMs,
-  });
-  const indexWorker = new IndexWorker(
-    queue,
-    log,
-    esClient,
-    [lspIndexerFactory],
-    gitOps,
-    cancellationService
-  ).bind();
-
-  const repoServiceFactory: RepositoryServiceFactory = new RepositoryServiceFactory();
-
-  const cloneWorker = new CloneWorker(
-    queue,
-    log,
-    esClient,
+  initRoutes(
+    server,
     serverOptions,
-    gitOps,
-    indexWorker,
-    repoServiceFactory,
-    cancellationService
-  ).bind();
-  const deleteWorker = new DeleteWorker(
-    queue,
+    codeServices,
     log,
-    esClient,
-    serverOptions,
-    gitOps,
-    cancellationService,
-    lspService,
-    repoServiceFactory
-  ).bind();
-  const updateWorker = new UpdateWorker(
-    queue,
-    log,
-    esClient,
-    serverOptions,
-    gitOps,
-    repoServiceFactory,
-    cancellationService
-  ).bind();
+    repoIndexInitializerFactory,
+    repoConfigController
+  );
+}
 
-  // Initialize schedulers.
-  const cloneScheduler = new CloneScheduler(cloneWorker, serverOptions, esClient, log);
-  const updateScheduler = new UpdateScheduler(updateWorker, serverOptions, esClient, log);
-  const indexScheduler = new IndexScheduler(indexWorker, serverOptions, esClient, log);
-  updateScheduler.start();
-  if (!serverOptions.disableIndexScheduler) {
-    indexScheduler.start();
-  }
-  // Check if the repository is local on the file system.
-  // This should be executed once at the startup time of Kibana.
-  cloneScheduler.schedule();
-
+function initRoutes(
+  server: Server,
+  serverOptions: ServerOptions,
+  codeServices: CodeServices,
+  log: Logger,
+  repoIndexInitializerFactory: RepositoryIndexInitializerFactory,
+  repoConfigController: RepositoryConfigController
+) {
   const codeServerRouter = new CodeServerRouter(server);
-  // Add server routes and initialize the plugin here
   repositoryRoute(
     codeServerRouter,
-    cloneWorker,
-    deleteWorker,
-    indexWorker,
+    codeServices,
     repoIndexInitializerFactory,
     repoConfigController,
     serverOptions
@@ -251,20 +216,23 @@ async function initCodeNode(server: Server, serverOptions: ServerOptions, log: L
   repositorySearchRoute(codeServerRouter, log);
   documentSearchRoute(codeServerRouter, log);
   symbolSearchRoute(codeServerRouter, log);
-  fileRoute(codeServerRouter, gitOps);
-  workspaceRoute(codeServerRouter, serverOptions, gitOps);
+  fileRoute(codeServerRouter, codeServices);
+  workspaceRoute(codeServerRouter, serverOptions, codeServices);
   symbolByQnameRoute(codeServerRouter, log);
-  installRoute(codeServerRouter, lspService);
-  lspRoute(codeServerRouter, lspService, serverOptions);
-  setupRoute(codeServerRouter);
-  statusRoute(codeServerRouter, gitOps, lspService);
+  installRoute(codeServerRouter, codeServices);
+  lspRoute(codeServerRouter, codeServices, serverOptions);
+  setupRoute(codeServerRouter, codeServices);
+  statusRoute(codeServerRouter, codeServices);
+}
 
-  server.events.on('stop', () => {
-    gitOps.cleanAllRepo();
-    if (!serverOptions.disableIndexScheduler) {
-      indexScheduler.stop();
-    }
-    updateScheduler.stop();
-    queue.destroy();
-  });
+function initDevMode(server: Server) {
+  // @ts-ignore
+  const devMode: boolean = server.config().get('env.dev');
+  server.injectUiAppVars('code', () => ({
+    enableLangserversDeveloping: devMode,
+  }));
+  // Enable the developing language servers in development mode.
+  if (devMode) {
+    JAVA.downloadUrl = _.partialRight(JAVA!.downloadUrl!, devMode);
+  }
 }

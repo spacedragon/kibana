@@ -6,11 +6,15 @@
 
 import { Request } from 'hapi';
 import { ServiceDefinition, ServiceHandlerFor, ServiceMethodMap } from './service_definition';
-import { DEFAULT_SERVICE_OPTION, HandlerAdapter, ServiceRegisterOptions } from './handler_adpter';
+import {
+  DEFAULT_SERVICE_OPTION,
+  ServiceHandlerAdapter,
+  ServiceRegisterOptions,
+} from './service_handler_adapter';
 import { Endpoint } from './resource_locator';
 
-export class DistributedCode {
-  constructor(private readonly adapter: HandlerAdapter) {}
+export class CodeServices {
+  constructor(private readonly adapter: ServiceHandlerAdapter) {}
 
   public registerHandler<serviceDefinition extends ServiceDefinition>(
     serviceDefinition: serviceDefinition,

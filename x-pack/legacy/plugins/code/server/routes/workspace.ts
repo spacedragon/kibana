@@ -7,20 +7,18 @@
 import Boom from 'boom';
 import hapi, { RequestQuery } from 'hapi';
 
-import { GitOperations } from '../git_operations';
-import { Logger } from '../log';
-import { WorkspaceCommand } from '../lsp/workspace_command';
-import { WorkspaceHandler } from '../lsp/workspace_handler';
 import { ServerOptions } from '../server_options';
-import { EsClientWithRequest } from '../utils/esclient_with_request';
-import { ServerLoggerFactory } from '../utils/server_logger_factory';
 import { CodeServerRouter } from '../security';
+import { CodeServices } from '../distributed/code_services';
+import { WorkspaceDefinition } from '../distributed/apis';
 
 export function workspaceRoute(
   server: CodeServerRouter,
   serverOptions: ServerOptions,
-  gitOps: GitOperations
+  codeServices: CodeServices
 ) {
+  const workspaceService = codeServices.serviceFor(WorkspaceDefinition);
+
   server.route({
     path: '/api/code/workspace',
     method: 'GET',
@@ -33,33 +31,15 @@ export function workspaceRoute(
     path: '/api/code/workspace/{uri*3}/{revision}',
     requireAdmin: true,
     method: 'POST',
-    async handler(req: hapi.Request, reply) {
+    async handler(req: hapi.Request) {
       const repoUri = req.params.uri as string;
       const revision = req.params.revision as string;
       const repoConfig = serverOptions.repoConfigs[repoUri];
       const force = !!(req.query as RequestQuery).force;
       if (repoConfig) {
-        const log = new Logger(server.server, ['workspace', repoUri]);
-        const workspaceHandler = new WorkspaceHandler(
-          gitOps,
-          serverOptions.workspacePath,
-          new EsClientWithRequest(req),
-          new ServerLoggerFactory(server.server)
-        );
+        const endpoint = await codeServices.locate(req, repoUri);
         try {
-          const { workspaceDir, workspaceRevision } = await workspaceHandler.openWorkspace(
-            repoUri,
-            revision
-          );
-          const workspaceCmd = new WorkspaceCommand(
-            repoConfig,
-            workspaceDir,
-            workspaceRevision,
-            log
-          );
-          workspaceCmd.runInit(force).then(() => {
-            return '';
-          });
+          await workspaceService.initCmd(endpoint, { repoUri, revision, force, repoConfig });
         } catch (e) {
           if (e.isBoom) {
             return e;
