@@ -26,6 +26,8 @@ import { CommitDiff, Diff, DiffKind } from '../common/git_diff';
 import { FileTree, FileTreeItemType, RepositoryUri } from '../model';
 import { CommitInfo, ReferenceInfo, ReferenceType } from '../model/commit';
 import { detectLanguage } from './utils/detect_language';
+import { Singleton } from './lib/di/inject_decorator';
+import { ServerOptions } from './server_options';
 
 isogit.plugins.set('fs', fs);
 
@@ -72,14 +74,16 @@ interface Tree {
   gitdir: string;
   oid: string;
 }
+
+@Singleton
 export class GitOperations {
   private REPO_LRU_CACHE_SIZE = 16;
   private REPO_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour;
   private repoRoot: string;
   private repoCache: LruCache<RepositoryUri, Repository>;
 
-  constructor(repoRoot: string) {
-    this.repoRoot = repoRoot;
+  constructor(serverOptions: ServerOptions) {
+    this.repoRoot = serverOptions.repoPath;
 
     const options = {
       max: this.REPO_LRU_CACHE_SIZE,

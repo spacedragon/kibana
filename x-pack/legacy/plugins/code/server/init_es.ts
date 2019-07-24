@@ -5,21 +5,24 @@
  */
 
 import { Server } from 'hapi';
-import { RepositoryIndexInitializerFactory } from './indexer';
-import { RepositoryConfigController } from './repository_config_controller';
-import { EsClientWithInternalRequest } from './utils/esclient_with_internal_request';
+import { Named, Singleton } from './lib/di/inject_decorator';
+import { tryMigrateIndices } from './indexer';
 import { EsClient } from './lib/esqueue';
 import { Logger } from './log';
 
-export async function initEs(server: Server, log: Logger) {
-  // wait until elasticsearch is ready
-  await server.plugins.elasticsearch.waitUntilReady();
-  const esClient: EsClient = new EsClientWithInternalRequest(server);
-  const repoConfigController = new RepositoryConfigController(esClient);
-  const repoIndexInitializerFactory = new RepositoryIndexInitializerFactory(esClient, log);
-  return {
-    esClient,
-    repoConfigController,
-    repoIndexInitializerFactory,
-  };
+@Singleton
+export class InitEs {
+  constructor(
+    private readonly server: Server,
+    @Named('EsInternal') private readonly esClient: EsClient,
+    private readonly log: Logger
+  ) {}
+
+  async init() {
+    // @ts-ignore
+    await this.server.plugins.elasticsearch.waitUntilReady();
+
+    // Execute index version checking and try to migrate index data if necessary.
+    await tryMigrateIndices(this.esClient, this.log);
+  }
 }

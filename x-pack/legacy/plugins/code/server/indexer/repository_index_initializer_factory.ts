@@ -8,7 +8,9 @@ import { Indexer, IndexerFactory, RepositoryIndexInitializer } from '.';
 import { RepositoryUri } from '../../model';
 import { EsClient } from '../lib/esqueue';
 import { Logger } from '../log';
+import { Inject } from '../lib/di/inject_decorator';
 
+@Inject
 export class RepositoryIndexInitializerFactory implements IndexerFactory {
   constructor(protected readonly client: EsClient, protected readonly log: Logger) {}
 

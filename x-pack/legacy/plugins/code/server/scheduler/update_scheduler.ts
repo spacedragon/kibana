@@ -11,14 +11,16 @@ import { UpdateWorker } from '../queue';
 import { RepositoryObjectClient } from '../search';
 import { ServerOptions } from '../server_options';
 import { AbstractScheduler } from './abstract_scheduler';
+import { Named, Singleton } from '../lib/di/inject_decorator';
 
+@Singleton
 export class UpdateScheduler extends AbstractScheduler {
   private objectClient: RepositoryObjectClient;
 
   constructor(
     private readonly updateWorker: UpdateWorker,
     private readonly serverOptions: ServerOptions,
-    protected readonly client: EsClient,
+    @Named('EsInternal') protected readonly client: EsClient,
     protected readonly log: Logger,
     protected readonly onScheduleFinished?: () => void
   ) {

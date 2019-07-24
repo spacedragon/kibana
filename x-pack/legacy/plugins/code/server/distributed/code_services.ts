@@ -12,9 +12,11 @@ import {
   ServiceRegisterOptions,
 } from './service_handler_adapter';
 import { Endpoint } from './resource_locator';
+import { Inject, Named } from '../lib/di/inject_decorator';
 
+@Inject
 export class CodeServices {
-  constructor(private readonly adapter: ServiceHandlerAdapter) {}
+  constructor(@Named('serviceAdapter') private readonly adapter: ServiceHandlerAdapter) {}
 
   public registerHandler<serviceDefinition extends ServiceDefinition>(
     serviceDefinition: serviceDefinition,

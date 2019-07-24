@@ -7,7 +7,9 @@
 import * as Hapi from 'hapi';
 import { Logger } from '../log';
 import { LoggerFactory } from './log_factory';
+import { Singleton } from '../lib/di/inject_decorator';
 
+@Singleton
 export class ServerLoggerFactory implements LoggerFactory {
   constructor(private readonly server: Hapi.Server) {}
 

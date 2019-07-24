@@ -26,21 +26,24 @@ export const RepositoryServiceDefinition = {
   },
 };
 
-export const getRepositoryHandler = (
-  cloneWorker: CloneWorker,
-  deleteWorker: DeleteWorker,
-  indexWorker: IndexWorker
-): ServiceHandlerFor<typeof RepositoryServiceDefinition> => ({
+export class RepositoryServiceHandler
+  implements ServiceHandlerFor<typeof RepositoryServiceDefinition> {
+  constructor(
+    private readonly cloneWorker: CloneWorker,
+    private readonly deleteWorker: DeleteWorker,
+    private readonly indexWorker: IndexWorker
+  ) {}
+
   async clone(payload: { url: string }) {
-    await cloneWorker.enqueueJob(payload, {});
+    await this.cloneWorker.enqueueJob(payload, {});
     return {};
-  },
+  }
   async delete(payload: { uri: string }) {
-    await deleteWorker.enqueueJob(payload, {});
+    await this.deleteWorker.enqueueJob(payload, {});
     return {};
-  },
+  }
   async index(payload: { uri: string; revision: string | undefined; enforceReindex: boolean }) {
-    await indexWorker.enqueueJob(payload, {});
+    await this.indexWorker.enqueueJob(payload, {});
     return {};
-  },
-});
+  }
+}

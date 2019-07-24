@@ -12,7 +12,9 @@ import { Logger } from '../log';
 import { LspService } from '../lsp/lsp_service';
 import { RepositoryObjectClient } from '../search';
 import { ServerOptions } from '../server_options';
+import { Inject, Named } from '../lib/di/inject_decorator';
 
+@Inject
 export class LspIndexerFactory implements IndexerFactory {
   private objectClient: RepositoryObjectClient;
 
@@ -20,7 +22,7 @@ export class LspIndexerFactory implements IndexerFactory {
     protected readonly lspService: LspService,
     protected readonly options: ServerOptions,
     protected readonly gitOps: GitOperations,
-    protected readonly client: EsClient,
+    @Named('internal') protected readonly client: EsClient,
     protected readonly log: Logger
   ) {
     this.objectClient = new RepositoryObjectClient(this.client);

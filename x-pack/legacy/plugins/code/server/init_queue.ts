@@ -6,14 +6,21 @@
 
 import { Server } from 'hapi';
 import { EsClient, Esqueue } from './lib/esqueue';
-import { Logger } from './log';
+import { Injector } from './lib/di/injector';
+import { Named, Singleton } from './lib/di/inject_decorator';
 
-export function initQueue(server: Server, log: Logger, esClient: EsClient) {
-  const queueIndex: string = server.config().get('xpack.code.queueIndex');
-  const queueTimeoutMs: number = server.config().get('xpack.code.queueTimeoutMs');
-  const queue = new Esqueue(queueIndex, {
-    client: esClient,
-    timeout: queueTimeoutMs,
-  });
-  return { queue };
+@Singleton
+export class InitQueue {
+  constructor(
+    private readonly server: Server,
+    @Named('EsInternal') private readonly esClient: EsClient
+  ) {
+    const queueIndex: string = server.config().get('xpack.code.queueIndex');
+    const queueTimeoutMs: number = server.config().get('xpack.code.queueTimeoutMs');
+    const queue = new Esqueue(queueIndex, {
+      client: esClient,
+      timeout: queueTimeoutMs,
+    });
+    Injector.provides(Esqueue, () => queue);
+  }
 }

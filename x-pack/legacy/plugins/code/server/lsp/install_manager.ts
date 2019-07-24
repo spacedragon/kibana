@@ -10,7 +10,9 @@ import { InstallationType } from '../../common/installation';
 import { LanguageServerStatus } from '../../common/language_server';
 import { ServerOptions } from '../server_options';
 import { LanguageServerDefinition } from './language_servers';
+import { Singleton } from '../lib/di/inject_decorator';
 
+@Singleton
 export class InstallManager {
   constructor(public readonly server: Server, readonly serverOptions: ServerOptions) {}
 

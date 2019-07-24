@@ -15,15 +15,15 @@ import { LoggerFactory } from '../utils/log_factory';
 import { LanguageServerController } from './controller';
 import { InstallManager } from './install_manager';
 import { WorkspaceHandler } from './workspace_handler';
+import { Named } from '../lib/di/inject_decorator';
 
 export class LspService {
   public readonly controller: LanguageServerController;
   public readonly workspaceHandler: WorkspaceHandler;
   constructor(
-    targetHost: string,
     serverOptions: ServerOptions,
     gitOps: GitOperations,
-    client: EsClient,
+    @Named('EsInternal') client: EsClient,
     installManager: InstallManager,
     loggerFactory: LoggerFactory,
     repoConfigController: RepositoryConfigController
@@ -36,7 +36,7 @@ export class LspService {
     );
     this.controller = new LanguageServerController(
       serverOptions,
-      targetHost,
+      '127.0.0.1',
       installManager,
       loggerFactory,
       repoConfigController

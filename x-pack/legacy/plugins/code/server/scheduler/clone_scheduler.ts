@@ -14,21 +14,22 @@ import { CloneWorker } from '../queue';
 import { RepositoryObjectClient } from '../search';
 import { ServerOptions } from '../server_options';
 import { AbstractScheduler } from './abstract_scheduler';
+import { Named, Singleton } from '../lib/di/inject_decorator';
 
 // Currently, this clone schedule is only used for reclone git repository
 // in case the local repository is gone for any reasons. This will only
 // be scheduled once at the startup time of Kibana.
+@Singleton
 export class CloneScheduler extends AbstractScheduler {
   private objectClient: RepositoryObjectClient;
 
   constructor(
     private readonly cloneWorker: CloneWorker,
     private readonly serverOptions: ServerOptions,
-    protected readonly client: EsClient,
-    protected readonly log: Logger,
-    protected readonly onScheduleFinished?: () => void
+    @Named('EsInternal') protected readonly client: EsClient,
+    protected readonly log: Logger
   ) {
-    super(client, Number.MAX_SAFE_INTEGER, onScheduleFinished);
+    super(client, Number.MAX_SAFE_INTEGER);
     this.objectClient = new RepositoryObjectClient(this.client);
   }
 

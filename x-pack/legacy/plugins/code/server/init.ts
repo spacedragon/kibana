@@ -11,17 +11,8 @@ import { i18n } from '@kbn/i18n';
 import { XPackMainPlugin } from '../../xpack_main/xpack_main';
 import { Logger } from './log';
 import { JAVA } from './lsp/language_servers';
-import { fileRoute } from './routes/file';
-import { installRoute } from './routes/install';
-import { lspRoute, symbolByQnameRoute } from './routes/lsp';
-import { repositoryRoute } from './routes/repository';
-import { documentSearchRoute, repositorySearchRoute, symbolSearchRoute } from './routes/search';
-import { setupRoute } from './routes/setup';
-import { workspaceRoute } from './routes/workspace';
-import { CodeServerRouter } from './security';
 import { ServerOptions } from './server_options';
 import { checkCodeNode, checkRoute } from './routes/check';
-import { statusRoute } from './routes/status';
 import { CodeServices } from './distributed/code_services';
 import { LocalHandlerAdapter } from './distributed/local_handler_adapter';
 import {
@@ -35,12 +26,12 @@ import {
 } from './distributed/apis';
 import { CodeNodeAdapter } from './distributed/multinode/code_node_adapter';
 import { NonCodeNodeAdapter } from './distributed/multinode/non_code_node_adapter';
-import { initWorkers } from './init_workers';
-import { initLocalService } from './init_local';
-import { initEs } from './init_es';
-import { initQueue } from './init_queue';
-import { RepositoryIndexInitializerFactory, tryMigrateIndices } from './indexer';
-import { RepositoryConfigController } from './repository_config_controller';
+import { InitWorkers } from './init_workers';
+import { InitLocal } from './init_local';
+import { InitEs } from './init_es';
+import { InitQueue } from './init_queue';
+import { Injector } from './lib/di/injector';
+import { InitRoutes } from './init_routes';
 
 async function retryUntilAvailable<T>(
   func: () => Promise<T>,
@@ -73,12 +64,14 @@ async function retryUntilAvailable<T>(
 }
 
 export function init(server: Server, options: any) {
+  Injector.provides(Server, () => server);
   if (!options.ui.enabled) {
     return;
   }
-
-  const log = new Logger(server);
   const serverOptions = new ServerOptions(options, server.config());
+  Injector.provides(ServerOptions, () => serverOptions);
+  const log = new Logger(server);
+  Injector.provides(Logger, () => log);
   const xpackMainPlugin: XPackMainPlugin = server.plugins.xpack_main;
   xpackMainPlugin.registerFeature({
     id: 'code',
@@ -111,7 +104,6 @@ export function init(server: Server, options: any) {
 
   // @ts-ignore
   const kbnServer = this.kbnServer;
-  const codeServerRouter = new CodeServerRouter(server);
 
   kbnServer.ready().then(async () => {
     const codeNodeUrl = serverOptions.codeNodeUrl;
@@ -123,106 +115,45 @@ export function init(server: Server, options: any) {
         3000
       );
       if (checkResult.me) {
-        const codeServices = new CodeServices(new CodeNodeAdapter(codeServerRouter, log));
+        Injector.provideNamed('serviceAdapter', CodeNodeAdapter);
         log.info('Initializing Code plugin as code-node.');
-        await initCodeNode(server, serverOptions, codeServices, log);
+        await initCodeNode();
       } else {
-        await initNonCodeNode(codeNodeUrl, server, serverOptions, log);
+        Injector.provideNamed('serviceAdapter', () => new NonCodeNodeAdapter(codeNodeUrl, log));
+        log.info(
+          `Initializing Code plugin as non-code node, redirecting all code requests to ${codeNodeUrl}`
+        );
+        await initNonCodeNode();
       }
     } else {
-      const codeServices = new CodeServices(new LocalHandlerAdapter());
+      Injector.provideNamed('serviceAdapter', LocalHandlerAdapter);
       // codeNodeUrl not set, single node mode
       log.info('Initializing Code plugin as single-node.');
       initDevMode(server);
-      await initCodeNode(server, serverOptions, codeServices, log);
+      await initCodeNode();
     }
   });
 }
 
-async function initNonCodeNode(
-  url: string,
-  server: Server,
-  serverOptions: ServerOptions,
-  log: Logger
-) {
-  log.info(`Initializing Code plugin as non-code node, redirecting all code requests to ${url}`);
-  const codeServices = new CodeServices(new NonCodeNodeAdapter(url, log));
+async function initNonCodeNode() {
+  const codeServices = Injector.resolve(CodeServices);
   codeServices.registerHandler(GitServiceDefinition, null, GitServiceDefinitionOption);
   codeServices.registerHandler(RepositoryServiceDefinition, null);
   codeServices.registerHandler(LspServiceDefinition, null, LspServiceDefinitionOption);
   codeServices.registerHandler(WorkspaceDefinition, null);
   codeServices.registerHandler(SetupDefinition, null);
-  const { repoConfigController, repoIndexInitializerFactory } = await initEs(server, log);
-  initRoutes(
-    server,
-    serverOptions,
-    codeServices,
-    log,
-    repoIndexInitializerFactory,
-    repoConfigController
-  );
+  await Injector.resolve(InitEs).init();
+  Injector.resolve(InitRoutes);
 }
 
-async function initCodeNode(
-  server: Server,
-  serverOptions: ServerOptions,
-  codeServices: CodeServices,
-  log: Logger
-) {
-  const { esClient, repoConfigController, repoIndexInitializerFactory } = await initEs(server, log);
+async function initCodeNode() {
+  await Injector.resolve(InitEs).init();
+  Injector.resolve(InitQueue);
 
-  const { queue } = initQueue(server, log, esClient);
+  Injector.resolve(InitLocal);
+  Injector.resolve(InitWorkers);
 
-  const { gitOps, lspService } = initLocalService(
-    server,
-    log,
-    serverOptions,
-    codeServices,
-    esClient,
-    repoConfigController
-  );
-
-  initWorkers(server, log, esClient, queue, lspService, gitOps, serverOptions, codeServices);
-
-  // Execute index version checking and try to migrate index data if necessary.
-  await tryMigrateIndices(esClient, log);
-
-  initRoutes(
-    server,
-    serverOptions,
-    codeServices,
-    log,
-    repoIndexInitializerFactory,
-    repoConfigController
-  );
-}
-
-function initRoutes(
-  server: Server,
-  serverOptions: ServerOptions,
-  codeServices: CodeServices,
-  log: Logger,
-  repoIndexInitializerFactory: RepositoryIndexInitializerFactory,
-  repoConfigController: RepositoryConfigController
-) {
-  const codeServerRouter = new CodeServerRouter(server);
-  repositoryRoute(
-    codeServerRouter,
-    codeServices,
-    repoIndexInitializerFactory,
-    repoConfigController,
-    serverOptions
-  );
-  repositorySearchRoute(codeServerRouter, log);
-  documentSearchRoute(codeServerRouter, log);
-  symbolSearchRoute(codeServerRouter, log);
-  fileRoute(codeServerRouter, codeServices);
-  workspaceRoute(codeServerRouter, serverOptions, codeServices);
-  symbolByQnameRoute(codeServerRouter, log);
-  installRoute(codeServerRouter, codeServices);
-  lspRoute(codeServerRouter, codeServices, serverOptions);
-  setupRoute(codeServerRouter, codeServices);
-  statusRoute(codeServerRouter, codeServices);
+  Injector.resolve(InitRoutes);
 }
 
 function initDevMode(server: Server) {

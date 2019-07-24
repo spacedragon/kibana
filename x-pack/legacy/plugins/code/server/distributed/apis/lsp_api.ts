@@ -10,6 +10,7 @@ import { ServiceHandlerFor } from '../service_definition';
 import { LanguageServerDefinition } from '../../lsp/language_servers';
 import { LanguageServerStatus } from '../../../common/language_server';
 import { WorkspaceStatus } from '../../lsp/request_expander';
+import { Inject } from '../../lib/di/inject_decorator';
 
 export const LspServiceDefinitionOption = { routePrefix: '/api/code/internal/lsp' };
 export const LspServiceDefinition = {
@@ -31,19 +32,19 @@ export const LspServiceDefinition = {
   },
 };
 
-export const getLspServiceHandler = (
-  lspService: LspService
-): ServiceHandlerFor<typeof LspServiceDefinition> => ({
+@Inject
+export class LspServiceHandler implements ServiceHandlerFor<typeof LspServiceDefinition> {
+  constructor(readonly lspService: LspService) {}
   async sendRequest({ method, params, timeoutForInitializeMs }) {
-    return await lspService.sendRequest(method, params, timeoutForInitializeMs);
-  },
+    return await this.lspService.sendRequest(method, params, timeoutForInitializeMs);
+  }
   async languageSeverDef({ lang }) {
-    return lspService.getLanguageSeverDef(lang);
-  },
+    return this.lspService.getLanguageSeverDef(lang);
+  }
   async languageServerStatus({ lang }) {
-    return await lspService.languageServerStatus(lang);
-  },
+    return await this.lspService.languageServerStatus(lang);
+  }
   async initializeState({ repoUri, revision }) {
-    return await lspService.initializeState(repoUri, revision);
-  },
-});
+    return await this.lspService.initializeState(repoUri, revision);
+  }
+}

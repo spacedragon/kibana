@@ -25,21 +25,23 @@ import { aggregateIndexStats } from '../utils/index_stats_aggregator';
 import { AbstractWorker } from './abstract_worker';
 import { CancellationSerivce } from './cancellation_service';
 import { Job } from './job';
+import { Named, Singleton } from '../lib/di/inject_decorator';
 
+@Singleton
 export class IndexWorker extends AbstractWorker {
   public id: string = 'index';
   private objectClient: RepositoryObjectClient;
-
+  private indexerFactories: IndexerFactory[];
   constructor(
     protected readonly queue: Esqueue,
     protected readonly log: Logger,
-    protected readonly client: EsClient,
-    protected readonly indexerFactories: IndexerFactory[],
+    @Named('EsInternal') protected readonly client: EsClient,
+    protected readonly lspIndexerFactory: IndexerFactory,
     protected readonly gitOps: GitOperations,
     private readonly cancellationService: CancellationSerivce
   ) {
     super(queue, log);
-
+    this.indexerFactories = [lspIndexerFactory];
     this.objectClient = new RepositoryObjectClient(this.client);
   }
 

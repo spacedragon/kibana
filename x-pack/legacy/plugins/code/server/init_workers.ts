@@ -10,91 +10,52 @@ import { LspService } from './lsp/lsp_service';
 import { GitOperations } from './git_operations';
 import { ServerOptions } from './server_options';
 import { CodeServices } from './distributed/code_services';
-import { LspIndexerFactory } from './indexer';
-import { CancellationSerivce, CloneWorker, DeleteWorker, IndexWorker, UpdateWorker } from './queue';
-import { RepositoryServiceFactory } from './repository_service_factory';
-import { getRepositoryHandler, RepositoryServiceDefinition } from './distributed/apis';
+import { CloneWorker, DeleteWorker, IndexWorker, UpdateWorker } from './queue';
+import { RepositoryServiceDefinition, RepositoryServiceHandler } from './distributed/apis';
 import { CloneScheduler, IndexScheduler, UpdateScheduler } from './scheduler';
 import { Logger } from './log';
 
-export function initWorkers(
-  server: Server,
-  log: Logger,
-  esClient: EsClient,
-  queue: Esqueue,
-  lspService: LspService,
-  gitOps: GitOperations,
-  serverOptions: ServerOptions,
-  codeServices: CodeServices
-) {
-  // Initialize indexing factories.
-  const lspIndexerFactory = new LspIndexerFactory(lspService, serverOptions, gitOps, esClient, log);
+export class InitWorkers {
+  constructor(
+    private readonly server: Server,
+    private readonly log: Logger,
+    private readonly esClient: EsClient,
+    private readonly queue: Esqueue,
+    private readonly lspService: LspService,
+    private readonly gitOps: GitOperations,
+    private readonly serverOptions: ServerOptions,
+    private readonly codeServices: CodeServices,
+    private readonly indexWorker: IndexWorker,
+    private readonly deleteWorker: DeleteWorker,
+    private readonly updateWorker: UpdateWorker,
+    private readonly cloneWorker: CloneWorker,
+    private readonly repositoryServiceHandler: RepositoryServiceHandler,
+    private readonly cloneScheduler: CloneScheduler,
+    private readonly updateScheduler: UpdateScheduler,
+    private readonly indexScheduler: IndexScheduler
+  ) {
+    indexWorker.bind();
+    cloneWorker.bind();
+    deleteWorker.bind();
+    updateWorker.bind();
 
-  // Initialize queue worker cancellation service.
-  const cancellationService = new CancellationSerivce();
-  const indexWorker = new IndexWorker(
-    queue,
-    log,
-    esClient,
-    [lspIndexerFactory],
-    gitOps,
-    cancellationService
-  ).bind();
+    codeServices.registerHandler(RepositoryServiceDefinition, repositoryServiceHandler);
 
-  const repoServiceFactory: RepositoryServiceFactory = new RepositoryServiceFactory();
-
-  const cloneWorker = new CloneWorker(
-    queue,
-    log,
-    esClient,
-    serverOptions,
-    gitOps,
-    indexWorker,
-    repoServiceFactory,
-    cancellationService
-  ).bind();
-  const deleteWorker = new DeleteWorker(
-    queue,
-    log,
-    esClient,
-    serverOptions,
-    gitOps,
-    cancellationService,
-    lspService,
-    repoServiceFactory
-  ).bind();
-  const updateWorker = new UpdateWorker(
-    queue,
-    log,
-    esClient,
-    serverOptions,
-    gitOps,
-    repoServiceFactory,
-    cancellationService
-  ).bind();
-
-  codeServices.registerHandler(
-    RepositoryServiceDefinition,
-    getRepositoryHandler(cloneWorker, deleteWorker, indexWorker)
-  );
-
-  // Initialize schedulers.
-  const cloneScheduler = new CloneScheduler(cloneWorker, serverOptions, esClient, log);
-  const updateScheduler = new UpdateScheduler(updateWorker, serverOptions, esClient, log);
-  const indexScheduler = new IndexScheduler(indexWorker, serverOptions, esClient, log);
-  updateScheduler.start();
-  if (!serverOptions.disableIndexScheduler) {
-    indexScheduler.start();
-  }
-  // Check if the repository is local on the file system.
-  // This should be executed once at the startup time of Kibana.
-  cloneScheduler.schedule();
-  server.events.on('stop', async () => {
-    await gitOps.cleanAllRepo();
+    // Initialize schedulers.
+    cloneScheduler.schedule();
+    updateScheduler.start();
     if (!serverOptions.disableIndexScheduler) {
-      indexScheduler.stop();
+      indexScheduler.start();
     }
-    updateScheduler.stop();
-    queue.destroy();
-  });
+    // Check if the repository is local on the file system.
+    // This should be executed once at the startup time of Kibana.
+    server.events.on('stop', async () => {
+      await gitOps.cleanAllRepo();
+      if (!serverOptions.disableIndexScheduler) {
+        indexScheduler.stop();
+      }
+      updateScheduler.stop();
+      queue.destroy();
+    });
+  }
 }
