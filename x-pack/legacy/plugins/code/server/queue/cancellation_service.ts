@@ -6,12 +6,14 @@
 
 import { RepositoryUri } from '../../model';
 import { CancellationToken } from '../lib/esqueue';
+import { Singleton } from '../lib/di/inject_decorator';
 
 interface CancellableJob {
   token: CancellationToken;
   jobPromise: Promise<any>;
 }
 
+@Singleton
 export class CancellationSerivce {
   private cloneCancellationMap: Map<RepositoryUri, CancellableJob>;
   private updateCancellationMap: Map<RepositoryUri, CancellableJob>;

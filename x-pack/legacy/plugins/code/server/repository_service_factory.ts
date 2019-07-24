@@ -6,7 +6,9 @@
 
 import { Logger } from './log';
 import { RepositoryService } from './repository_service';
+import { Singleton } from './lib/di/inject_decorator';
 
+@Singleton
 export class RepositoryServiceFactory {
   public newInstance(
     repoPath: string,

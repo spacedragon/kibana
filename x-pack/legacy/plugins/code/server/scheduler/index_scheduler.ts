@@ -12,7 +12,9 @@ import { IndexWorker } from '../queue';
 import { RepositoryObjectClient } from '../search';
 import { ServerOptions } from '../server_options';
 import { AbstractScheduler } from './abstract_scheduler';
+import { Singleton } from '../lib/di/inject_decorator';
 
+@Singleton
 export class IndexScheduler extends AbstractScheduler {
   private objectClient: RepositoryObjectClient;
 
@@ -20,10 +22,9 @@ export class IndexScheduler extends AbstractScheduler {
     private readonly indexWorker: IndexWorker,
     private readonly serverOptions: ServerOptions,
     protected readonly client: EsClient,
-    protected readonly log: Logger,
-    protected readonly onScheduleFinished?: () => void
+    protected readonly log: Logger
   ) {
-    super(client, serverOptions.indexFrequencyMs, onScheduleFinished);
+    super(client, serverOptions.indexFrequencyMs);
     this.objectClient = new RepositoryObjectClient(this.client);
   }
 

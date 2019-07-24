@@ -19,7 +19,9 @@ import { ServerOptions } from '../server_options';
 import { AbstractWorker } from './abstract_worker';
 import { CancellationSerivce } from './cancellation_service';
 import { Job } from './job';
+import { Inject, Named } from '../lib/di/inject_decorator';
 
+@Inject
 export class DeleteWorker extends AbstractWorker {
   public id: string = 'delete';
   private objectClient: RepositoryObjectClient;
@@ -27,7 +29,7 @@ export class DeleteWorker extends AbstractWorker {
   constructor(
     protected readonly queue: Esqueue,
     protected readonly log: Logger,
-    protected readonly client: EsClient,
+    @Named('EsInternal') protected readonly client: EsClient,
     protected readonly serverOptions: ServerOptions,
     protected readonly gitOps: GitOperations,
     private readonly cancellationService: CancellationSerivce,

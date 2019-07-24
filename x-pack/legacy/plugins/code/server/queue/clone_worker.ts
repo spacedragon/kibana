@@ -23,14 +23,16 @@ import { AbstractGitWorker } from './abstract_git_worker';
 import { CancellationSerivce } from './cancellation_service';
 import { IndexWorker } from './index_worker';
 import { Job } from './job';
+import { Inject, Named } from '../lib/di/inject_decorator';
 
+@Inject
 export class CloneWorker extends AbstractGitWorker {
   public id: string = 'clone';
 
   constructor(
     protected readonly queue: Esqueue,
     protected readonly log: Logger,
-    protected readonly client: EsClient,
+    @Named('EsInternal') protected readonly client: EsClient,
     protected readonly serverOptions: ServerOptions,
     protected readonly gitOps: GitOperations,
     private readonly indexWorker: IndexWorker,

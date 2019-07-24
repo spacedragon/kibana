@@ -16,6 +16,7 @@ import { TEXT_FILE_LIMIT } from '../../../common/file';
 import { CommitInfo, ReferenceInfo } from '../../../model/commit';
 import { CommitDiff } from '../../../common/git_diff';
 import { GitBlame } from '../../../common/git_blame';
+import { Inject } from '../../lib/di/inject_decorator';
 
 interface FileLocation {
   uri: string;
@@ -81,17 +82,18 @@ export const GitServiceDefinition = {
   },
 };
 
-export const getGitServiceHandler = (
-  gitOps: GitOperations
-): ServiceHandlerFor<typeof GitServiceDefinition> => ({
+@Inject()
+export class GitServiceHandler implements ServiceHandlerFor<typeof GitServiceDefinition> {
+  constructor(private readonly gitOps: GitOperations) {}
+
   async fileTree(
     { uri, path, revision, skip, limit, withParents, flatten },
     context: RequestContext
   ) {
-    return await gitOps.fileTree(uri, path, revision, skip, limit, withParents, flatten);
-  },
+    return await this.gitOps.fileTree(uri, path, revision, skip, limit, withParents, flatten);
+  }
   async blob({ uri, path, revision, line }) {
-    const blob = await gitOps.fileContent(uri, path, revision);
+    const blob = await this.gitOps.fileContent(uri, path, revision);
     const isBinary = blob.isBinary();
     if (isBinary) {
       const type = fileType(blob.content());
@@ -134,18 +136,18 @@ export const getGitServiceHandler = (
         };
       }
     }
-  },
+  }
   async raw({ uri, path, revision }) {
-    const blob = await gitOps.fileContent(uri, path, revision);
+    const blob = await this.gitOps.fileContent(uri, path, revision);
     const isBinary = blob.isBinary();
     return {
       isBinary,
       content: blob.content().toString(),
     };
-  },
+  }
   async history({ uri, path, revision, count, after }) {
-    const repository = await gitOps.openRepo(uri);
-    const commit = await gitOps.getCommitInfo(uri, revision);
+    const repository = await this.gitOps.openRepo(uri);
+    const commit = await this.gitOps.getCommitInfo(uri, revision);
     if (commit === null) {
       throw Boom.notFound(`commit ${revision} not found in repo ${uri}`);
     }
@@ -167,20 +169,20 @@ export const getGitServiceHandler = (
       }
     }
     return commits.map(commitInfo);
-  },
+  }
   async branchesAndTags({ uri }) {
-    return await gitOps.getBranchAndTags(uri);
-  },
+    return await this.gitOps.getBranchAndTags(uri);
+  }
   async commitDiff({ uri, revision }) {
-    return await gitOps.getCommitDiff(uri, revision);
-  },
+    return await this.gitOps.getCommitDiff(uri, revision);
+  }
   async blame({ uri, path, revision }) {
-    return await gitOps.blame(uri, revision, path);
-  },
+    return await this.gitOps.blame(uri, revision, path);
+  }
   async commit({ uri, revision }) {
-    return await gitOps.getCommitOr404(uri, revision);
-  },
+    return await this.gitOps.getCommitOr404(uri, revision);
+  }
   async headRevision({ uri }) {
-    return await gitOps.getHeadRevision(uri);
-  },
-});
+    return await this.gitOps.getHeadRevision(uri);
+  }
+}

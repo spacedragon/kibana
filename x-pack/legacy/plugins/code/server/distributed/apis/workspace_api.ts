@@ -10,6 +10,7 @@ import { WorkspaceHandler } from '../../lsp/workspace_handler';
 import { RepoConfig } from '../../../model';
 import { WorkspaceCommand } from '../../lsp/workspace_command';
 import { Logger } from '../../log';
+import { Inject } from '../../lib/di/inject_decorator';
 
 export const WorkspaceDefinition = {
   initCmd: {
@@ -18,17 +19,19 @@ export const WorkspaceDefinition = {
   },
 };
 
-export const getWorkspaceHandler = (
-  server: Server,
-  workspaceHandler: WorkspaceHandler
-): ServiceHandlerFor<typeof WorkspaceDefinition> => ({
+@Inject
+export class WorkspaceServiceHandler implements ServiceHandlerFor<typeof WorkspaceDefinition> {
+  constructor(
+    private readonly server: Server,
+    private readonly workspaceHandler: WorkspaceHandler
+  ) {}
   async initCmd({ repoUri, revision, repoConfig, force }) {
     try {
-      const { workspaceDir, workspaceRevision } = await workspaceHandler.openWorkspace(
+      const { workspaceDir, workspaceRevision } = await this.workspaceHandler.openWorkspace(
         repoUri,
         revision
       );
-      const log = new Logger(server, ['workspace', repoUri]);
+      const log = new Logger(this.server, ['workspace', repoUri]);
 
       const workspaceCmd = new WorkspaceCommand(repoConfig, workspaceDir, workspaceRevision, log);
       await workspaceCmd.runInit(force);
@@ -38,5 +41,5 @@ export const getWorkspaceHandler = (
         return e;
       }
     }
-  },
-});
+  }
+}

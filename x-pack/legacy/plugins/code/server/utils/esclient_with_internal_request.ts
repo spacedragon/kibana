@@ -8,7 +8,10 @@ import { Server } from 'hapi';
 import { AnyObject, EsClient } from '../lib/esqueue';
 import { EsIndexClient } from './es_index_client';
 import { WithInternalRequest } from './with_internal_request';
+import { Inject, Named } from '../lib/di/inject_decorator';
 
+@Inject
+@Named('EsInternal')
 export class EsClientWithInternalRequest extends WithInternalRequest implements EsClient {
   public readonly indices = new EsIndexClient(this);
 

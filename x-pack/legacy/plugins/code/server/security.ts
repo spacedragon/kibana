@@ -5,7 +5,9 @@
  */
 
 import { Server, ServerRoute, RouteOptions } from 'hapi';
+import { Singleton } from './lib/di/inject_decorator';
 
+@Singleton
 export class CodeServerRouter {
   constructor(readonly server: Server) {}
 

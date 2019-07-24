@@ -13,14 +13,16 @@ import { ServerOptions } from '../server_options';
 import { AbstractGitWorker } from './abstract_git_worker';
 import { CancellationSerivce } from './cancellation_service';
 import { Job } from './job';
+import { Named, Singleton } from '../lib/di/inject_decorator';
 
+@Singleton
 export class UpdateWorker extends AbstractGitWorker {
   public id: string = 'update';
 
   constructor(
     queue: Esqueue,
     protected readonly log: Logger,
-    protected readonly client: EsClient,
+    @Named('EsInternal') protected readonly client: EsClient,
     protected readonly serverOptions: ServerOptions,
     protected readonly gitOps: GitOperations,
     protected readonly repoServiceFactory: RepositoryServiceFactory,

@@ -8,7 +8,9 @@ import { parseLspUrl } from '../common/uri_util';
 import { RepositoryConfig } from '../model';
 import { EsClient } from '../server/lib/esqueue';
 import { RepositoryObjectClient } from './search';
+import { Singleton } from './lib/di/inject_decorator';
 
+@Singleton
 export class RepositoryConfigController {
   private repositoryConfigCache: { [repoUri: string]: RepositoryConfig } = {};
   private repoObjectClient: RepositoryObjectClient;
