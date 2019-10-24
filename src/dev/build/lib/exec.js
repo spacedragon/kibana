@@ -20,7 +20,7 @@
 import execa from 'execa';
 import chalk from 'chalk';
 
-import { watchStdioForLine } from '../../../utils';
+import { watchStdioForLine } from '../../../legacy/utils';
 
 export async function exec(log, cmd, args, options = {}) {
   const {
@@ -36,6 +36,7 @@ export async function exec(log, cmd, args, options = {}) {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd,
     env,
+    preferLocal: true,
   });
 
   await watchStdioForLine(proc, line => log[level](line), exitAfter);

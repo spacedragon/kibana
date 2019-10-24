@@ -1,0 +1,33 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Snapshot component renders without errors 1`] = `
+<ChartWrapper
+  loading={false}
+>
+  <EuiTitle
+    size="s"
+  >
+    <h2>
+      <FormattedMessage
+        defaultMessage="{down}/{total} monitors are down"
+        id="xpack.uptime.snapshot.downCountsMessage"
+        values={
+          Object {
+            "down": 2,
+            "total": 10,
+          }
+        }
+      />
+    </h2>
+  </EuiTitle>
+  <EuiSpacer
+    size="xs"
+  />
+  <DonutChart
+    down={2}
+    height={144}
+    up={8}
+    width={144}
+  />
+</ChartWrapper>
+`;

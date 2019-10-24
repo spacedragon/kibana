@@ -17,22 +17,40 @@
  * under the License.
  */
 
-module.exports = {
-  presets: [
-    require.resolve('babel-preset-react'),
-  ],
-  plugins: [
-    require.resolve('babel-plugin-add-module-exports'),
-    // stage 3
-    require.resolve('babel-plugin-transform-async-generator-functions'),
-    require.resolve('babel-plugin-transform-object-rest-spread'),
+const plugins = [
+  require.resolve('babel-plugin-add-module-exports'),
 
-    // the class properties proposal was merged with the private fields proposal
-    // into the "class fields" proposal. Babel doesn't support this combined
-    // proposal yet, which includes private field, so this transform is
-    // TECHNICALLY stage 2, but for all intents and purposes it's stage 3
-    //
-    // See https://github.com/babel/proposals/issues/12 for progress
-    require.resolve('babel-plugin-transform-class-properties'),
+  // The class properties proposal was merged with the private fields proposal
+  // into the "class fields" proposal. Babel doesn't support this combined
+  // proposal yet, which includes private field, so this transform is
+  // TECHNICALLY stage 2, but for all intents and purposes it's stage 3
+  //
+  // See https://github.com/babel/proposals/issues/12 for progress
+  require.resolve('@babel/plugin-proposal-class-properties'),
+];
+const isTestEnv = process.env.BABEL_ENV === 'test' || process.env.NODE_ENV === 'test';
+
+// Only load the idx plugin in non-test environments, since it conflicts with
+// Jest's coverage mapping.
+if (!isTestEnv) {
+  plugins.push(require.resolve('@kbn/elastic-idx/babel'));
+}
+
+module.exports = {
+  presets: [require.resolve('@babel/preset-typescript'), require.resolve('@babel/preset-react')],
+  plugins,
+  overrides: [
+    {
+      // Babel 7 don't support the namespace feature on typescript code.
+      // With namespaces only used for type declarations, we can securely
+      // strip them off for babel on x-pack infra/siem plugins
+      //
+      // See https://github.com/babel/babel/issues/8244#issuecomment-466548733
+      test: [
+        /x-pack[\/\\]legacy[\/\\]plugins[\/\\]infra[\/\\].*[\/\\]graphql/,
+        /x-pack[\/\\]legacy[\/\\]plugins[\/\\]siem[\/\\].*[\/\\]graphql/,
+      ],
+      plugins: [[require.resolve('babel-plugin-typescript-strip-namespaces')]],
+    },
   ],
 };

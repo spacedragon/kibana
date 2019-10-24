@@ -17,6 +17,7 @@
  * under the License.
  */
 
+// Creates an filter where the given field matches the given value
 export function buildPhraseFilter(field, value, indexPattern) {
   const filter = { meta: { index: indexPattern.id } };
   const convertedValue = getConvertedValueForField(field, value);
@@ -25,11 +26,8 @@ export function buildPhraseFilter(field, value, indexPattern) {
     filter.script = getPhraseScript(field, value);
     filter.meta.field = field.name;
   } else {
-    filter.query = { match: {} };
-    filter.query.match[field.name] = {
-      query: convertedValue,
-      type: 'phrase'
-    };
+    filter.query = { match_phrase: {} };
+    filter.query.match_phrase[field.name] = convertedValue;
   }
   return filter;
 }
@@ -40,7 +38,7 @@ export function getPhraseScript(field, value) {
 
   return {
     script: {
-      inline: script,
+      source: script,
       lang: field.lang,
       params: {
         value: convertedValue

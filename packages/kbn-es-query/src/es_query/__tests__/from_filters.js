@@ -17,7 +17,7 @@
  * under the License.
  */
 
-import expect from 'expect.js';
+import expect from '@kbn/expect';
 import { buildQueryFromFilters } from '../from_filters';
 
 describe('build query', function () {
@@ -52,6 +52,32 @@ describe('build query', function () {
 
       const result = buildQueryFromFilters(filters);
 
+      expect(result.filter).to.eql(expectedESQueries);
+    });
+
+    it('should remove disabled filters', function () {
+      const filters = [
+        {
+          match_all: {},
+          meta: { type: 'match_all', negate: true, disabled: true },
+        },
+      ];
+
+      const expectedESQueries = [];
+
+      const result = buildQueryFromFilters(filters);
+
+      expect(result.must_not).to.eql(expectedESQueries);
+    });
+
+    it('should remove falsy filters', function () {
+      const filters = [null, undefined];
+
+      const expectedESQueries = [];
+
+      const result = buildQueryFromFilters(filters);
+
+      expect(result.must_not).to.eql(expectedESQueries);
       expect(result.must).to.eql(expectedESQueries);
     });
 
@@ -86,7 +112,7 @@ describe('build query', function () {
 
       const result = buildQueryFromFilters(filters);
 
-      expect(result.must).to.eql(expectedESQueries);
+      expect(result.filter).to.eql(expectedESQueries);
     });
 
     it('should migrate deprecated match syntax', function () {
@@ -105,7 +131,7 @@ describe('build query', function () {
 
       const result = buildQueryFromFilters(filters);
 
-      expect(result.must).to.eql(expectedESQueries);
+      expect(result.filter).to.eql(expectedESQueries);
     });
 
     it('should not add query:queryString:options to query_string filters', function () {
@@ -119,7 +145,7 @@ describe('build query', function () {
 
       const result = buildQueryFromFilters(filters);
 
-      expect(result.must).to.eql(expectedESQueries);
+      expect(result.filter).to.eql(expectedESQueries);
     });
   });
 });

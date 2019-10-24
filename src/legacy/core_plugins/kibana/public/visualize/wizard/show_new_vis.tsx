@@ -20,16 +20,16 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 
-import { I18nProvider } from '@kbn/i18n/react';
-import { VisType } from 'ui/vis';
+import { I18nContext } from 'ui/i18n';
 import { NewVisModal } from './new_vis_modal';
+import { TypesStart } from '../../../../visualizations/public/np_ready/public/types';
 
 interface ShowNewVisModalParams {
   editorParams?: string[];
 }
 
 export function showNewVisModal(
-  visTypeRegistry: VisType[],
+  visTypeRegistry: TypesStart,
   { editorParams = [] }: ShowNewVisModalParams = {}
 ) {
   const container = document.createElement('div');
@@ -40,14 +40,14 @@ export function showNewVisModal(
 
   document.body.appendChild(container);
   const element = (
-    <I18nProvider>
+    <I18nContext>
       <NewVisModal
         isOpen={true}
         onClose={onClose}
         visTypesRegistry={visTypeRegistry}
         editorParams={editorParams}
       />
-    </I18nProvider>
+    </I18nContext>
   );
   ReactDOM.render(element, container);
 }

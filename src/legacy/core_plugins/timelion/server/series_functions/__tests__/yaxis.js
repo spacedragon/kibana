@@ -17,13 +17,12 @@
  * under the License.
  */
 
-const filename = require('path').basename(__filename);
-const fn = require(`../${filename}`);
-import Promise from 'bluebird';
+const fn = require(`../yaxis`);
+import Bluebird from 'bluebird';
 const expect = require('chai').expect;
 import invoke from './helpers/invoke_series_fn.js';
 
-describe(filename, () => {
+describe('yaxis.js', () => {
   let seriesList;
   beforeEach(() => {
     seriesList = require('./fixtures/seriesList.js')();
@@ -37,7 +36,7 @@ describe(filename, () => {
   });
 
   it('puts odd numbers of the left, even on the right, by default', () => {
-    return Promise.all([
+    return Bluebird.all([
       invoke(fn, [seriesList, 1]).then((r) => {
         expect(r.output.list[0]._global.yaxes[0].position).to.equal('left');
       }),
@@ -51,7 +50,7 @@ describe(filename, () => {
   });
 
   it('it lets you override default positions', () => {
-    return Promise.all([
+    return Bluebird.all([
       invoke(fn, [seriesList, 1, null, null, 'right']).then((r) => {
         expect(r.output.list[0]._global.yaxes[0].position).to.equal('right');
       }),
@@ -62,7 +61,7 @@ describe(filename, () => {
   });
 
   it('sets the minimum (default: no min)', () => {
-    return Promise.all([
+    return Bluebird.all([
       invoke(fn, [seriesList, 1, null]).then((r) => {
         expect(r.output.list[0]._global.yaxes[0].min).to.equal(null);
       }),
@@ -73,7 +72,7 @@ describe(filename, () => {
   });
 
   it('sets the max (default: no max)', () => {
-    return Promise.all([
+    return Bluebird.all([
       invoke(fn, [seriesList, 1, null]).then((r) => {
         expect(r.output.list[0]._global.yaxes[0].max).to.equal(undefined);
       }),
@@ -84,7 +83,7 @@ describe(filename, () => {
   });
 
   it('sets the units (default: no unit', () => {
-    return Promise.all([
+    return Bluebird.all([
       invoke(fn, [seriesList, 1, null, null, null, null, null, null]).then((r) => {
         expect(r.output.list[0]._global.yaxes[0].units).to.equal(undefined);
       }),

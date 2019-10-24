@@ -1,28 +1,33 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`render 1`] = `
-<div
-  className="kuiVerticalRhythmLarge"
->
-  <KuiBar
-    className="kuiVerticalRhythm"
+<div>
+  <EuiFlexGroup
+    justifyContent="spaceBetween"
+    responsive={false}
+    wrap={true}
   >
-    <KuiBarSection>
-      <div
-        className="kuiTitle"
+    <EuiFlexItem
+      grow={false}
+    >
+      <EuiTitle
+        size="m"
       >
-        title1
-      </div>
-    </KuiBarSection>
-    <KuiBarSection />
-  </KuiBar>
+        <h2>
+          title1
+        </h2>
+      </EuiTitle>
+    </EuiFlexItem>
+    <EuiFlexItem
+      grow={false}
+    />
+  </EuiFlexGroup>
   <EuiTabs
-    className="kuiVerticalRhythm"
+    display="default"
     expand={false}
     size="m"
   >
     <EuiTab
-      disabled={false}
       isSelected={true}
       key="0"
       onClick={[Function]}
@@ -30,7 +35,6 @@ exports[`render 1`] = `
       OSX
     </EuiTab>
     <EuiTab
-      disabled={false}
       isSelected={false}
       key="1"
       onClick={[Function]}
@@ -43,7 +47,6 @@ exports[`render 1`] = `
   />
   <EuiSteps
     firstStepNumber={1}
-    headingElement="p"
     steps={
       Array [
         Object {
@@ -79,28 +82,33 @@ exports[`render 1`] = `
 `;
 
 exports[`statusCheckState checking status 1`] = `
-<div
-  className="kuiVerticalRhythmLarge"
->
-  <KuiBar
-    className="kuiVerticalRhythm"
+<div>
+  <EuiFlexGroup
+    justifyContent="spaceBetween"
+    responsive={false}
+    wrap={true}
   >
-    <KuiBarSection>
-      <div
-        className="kuiTitle"
+    <EuiFlexItem
+      grow={false}
+    >
+      <EuiTitle
+        size="m"
       >
-        title1
-      </div>
-    </KuiBarSection>
-    <KuiBarSection />
-  </KuiBar>
+        <h2>
+          title1
+        </h2>
+      </EuiTitle>
+    </EuiFlexItem>
+    <EuiFlexItem
+      grow={false}
+    />
+  </EuiFlexGroup>
   <EuiTabs
-    className="kuiVerticalRhythm"
+    display="default"
     expand={false}
     size="m"
   >
     <EuiTab
-      disabled={false}
       isSelected={true}
       key="0"
       onClick={[Function]}
@@ -108,7 +116,6 @@ exports[`statusCheckState checking status 1`] = `
       OSX
     </EuiTab>
     <EuiTab
-      disabled={false}
       isSelected={false}
       key="1"
       onClick={[Function]}
@@ -121,7 +128,6 @@ exports[`statusCheckState checking status 1`] = `
   />
   <EuiSteps
     firstStepNumber={1}
-    headingElement="p"
     steps={
       Array [
         Object {
@@ -152,39 +158,26 @@ exports[`statusCheckState checking status 1`] = `
         },
         Object {
           "children": <React.Fragment>
-            <EuiFlexGroup
+            <ForwardRef
               alignItems="center"
-              component="div"
-              direction="row"
-              gutterSize="l"
               justifyContent="spaceBetween"
-              responsive={true}
-              wrap={false}
             >
-              <EuiFlexItem
-                component="div"
-                grow={true}
-              >
+              <EuiFlexItem>
                 <Content
                   text="custom status check description"
                 />
               </EuiFlexItem>
               <EuiFlexItem
-                component="div"
                 grow={false}
               >
                 <EuiButton
-                  color="primary"
-                  fill={false}
-                  iconSide="left"
                   isLoading={true}
                   onClick={[Function]}
-                  type="button"
                 >
                   custom btn label
                 </EuiButton>
               </EuiFlexItem>
-            </EuiFlexGroup>
+            </ForwardRef>
             <EuiSpacer
               size="s"
             />
@@ -200,28 +193,33 @@ exports[`statusCheckState checking status 1`] = `
 `;
 
 exports[`statusCheckState failed status check - error 1`] = `
-<div
-  className="kuiVerticalRhythmLarge"
->
-  <KuiBar
-    className="kuiVerticalRhythm"
+<div>
+  <EuiFlexGroup
+    justifyContent="spaceBetween"
+    responsive={false}
+    wrap={true}
   >
-    <KuiBarSection>
-      <div
-        className="kuiTitle"
+    <EuiFlexItem
+      grow={false}
+    >
+      <EuiTitle
+        size="m"
       >
-        title1
-      </div>
-    </KuiBarSection>
-    <KuiBarSection />
-  </KuiBar>
+        <h2>
+          title1
+        </h2>
+      </EuiTitle>
+    </EuiFlexItem>
+    <EuiFlexItem
+      grow={false}
+    />
+  </EuiFlexGroup>
   <EuiTabs
-    className="kuiVerticalRhythm"
+    display="default"
     expand={false}
     size="m"
   >
     <EuiTab
-      disabled={false}
       isSelected={true}
       key="0"
       onClick={[Function]}
@@ -229,7 +227,6 @@ exports[`statusCheckState failed status check - error 1`] = `
       OSX
     </EuiTab>
     <EuiTab
-      disabled={false}
       isSelected={false}
       key="1"
       onClick={[Function]}
@@ -242,7 +239,6 @@ exports[`statusCheckState failed status check - error 1`] = `
   />
   <EuiSteps
     firstStepNumber={1}
-    headingElement="p"
     steps={
       Array [
         Object {
@@ -273,45 +269,31 @@ exports[`statusCheckState failed status check - error 1`] = `
         },
         Object {
           "children": <React.Fragment>
-            <EuiFlexGroup
+            <ForwardRef
               alignItems="center"
-              component="div"
-              direction="row"
-              gutterSize="l"
               justifyContent="spaceBetween"
-              responsive={true}
-              wrap={false}
             >
-              <EuiFlexItem
-                component="div"
-                grow={true}
-              >
+              <EuiFlexItem>
                 <Content
                   text="custom status check description"
                 />
               </EuiFlexItem>
               <EuiFlexItem
-                component="div"
                 grow={false}
               >
                 <EuiButton
-                  color="primary"
-                  fill={false}
-                  iconSide="left"
                   isLoading={false}
                   onClick={[Function]}
-                  type="button"
                 >
                   custom btn label
                 </EuiButton>
               </EuiFlexItem>
-            </EuiFlexGroup>
+            </ForwardRef>
             <EuiSpacer
               size="s"
             />
             <EuiCallOut
               color="warning"
-              size="m"
               title="custom error msg"
             />
           </React.Fragment>,
@@ -326,28 +308,33 @@ exports[`statusCheckState failed status check - error 1`] = `
 `;
 
 exports[`statusCheckState failed status check - no data 1`] = `
-<div
-  className="kuiVerticalRhythmLarge"
->
-  <KuiBar
-    className="kuiVerticalRhythm"
+<div>
+  <EuiFlexGroup
+    justifyContent="spaceBetween"
+    responsive={false}
+    wrap={true}
   >
-    <KuiBarSection>
-      <div
-        className="kuiTitle"
+    <EuiFlexItem
+      grow={false}
+    >
+      <EuiTitle
+        size="m"
       >
-        title1
-      </div>
-    </KuiBarSection>
-    <KuiBarSection />
-  </KuiBar>
+        <h2>
+          title1
+        </h2>
+      </EuiTitle>
+    </EuiFlexItem>
+    <EuiFlexItem
+      grow={false}
+    />
+  </EuiFlexGroup>
   <EuiTabs
-    className="kuiVerticalRhythm"
+    display="default"
     expand={false}
     size="m"
   >
     <EuiTab
-      disabled={false}
       isSelected={true}
       key="0"
       onClick={[Function]}
@@ -355,7 +342,6 @@ exports[`statusCheckState failed status check - no data 1`] = `
       OSX
     </EuiTab>
     <EuiTab
-      disabled={false}
       isSelected={false}
       key="1"
       onClick={[Function]}
@@ -368,7 +354,6 @@ exports[`statusCheckState failed status check - no data 1`] = `
   />
   <EuiSteps
     firstStepNumber={1}
-    headingElement="p"
     steps={
       Array [
         Object {
@@ -399,45 +384,31 @@ exports[`statusCheckState failed status check - no data 1`] = `
         },
         Object {
           "children": <React.Fragment>
-            <EuiFlexGroup
+            <ForwardRef
               alignItems="center"
-              component="div"
-              direction="row"
-              gutterSize="l"
               justifyContent="spaceBetween"
-              responsive={true}
-              wrap={false}
             >
-              <EuiFlexItem
-                component="div"
-                grow={true}
-              >
+              <EuiFlexItem>
                 <Content
                   text="custom status check description"
                 />
               </EuiFlexItem>
               <EuiFlexItem
-                component="div"
                 grow={false}
               >
                 <EuiButton
-                  color="primary"
-                  fill={false}
-                  iconSide="left"
                   isLoading={false}
                   onClick={[Function]}
-                  type="button"
                 >
                   custom btn label
                 </EuiButton>
               </EuiFlexItem>
-            </EuiFlexGroup>
+            </ForwardRef>
             <EuiSpacer
               size="s"
             />
             <EuiCallOut
               color="warning"
-              size="m"
               title="custom error msg"
             />
           </React.Fragment>,
@@ -452,28 +423,33 @@ exports[`statusCheckState failed status check - no data 1`] = `
 `;
 
 exports[`statusCheckState initial state - no check has been attempted 1`] = `
-<div
-  className="kuiVerticalRhythmLarge"
->
-  <KuiBar
-    className="kuiVerticalRhythm"
+<div>
+  <EuiFlexGroup
+    justifyContent="spaceBetween"
+    responsive={false}
+    wrap={true}
   >
-    <KuiBarSection>
-      <div
-        className="kuiTitle"
+    <EuiFlexItem
+      grow={false}
+    >
+      <EuiTitle
+        size="m"
       >
-        title1
-      </div>
-    </KuiBarSection>
-    <KuiBarSection />
-  </KuiBar>
+        <h2>
+          title1
+        </h2>
+      </EuiTitle>
+    </EuiFlexItem>
+    <EuiFlexItem
+      grow={false}
+    />
+  </EuiFlexGroup>
   <EuiTabs
-    className="kuiVerticalRhythm"
+    display="default"
     expand={false}
     size="m"
   >
     <EuiTab
-      disabled={false}
       isSelected={true}
       key="0"
       onClick={[Function]}
@@ -481,7 +457,6 @@ exports[`statusCheckState initial state - no check has been attempted 1`] = `
       OSX
     </EuiTab>
     <EuiTab
-      disabled={false}
       isSelected={false}
       key="1"
       onClick={[Function]}
@@ -494,7 +469,6 @@ exports[`statusCheckState initial state - no check has been attempted 1`] = `
   />
   <EuiSteps
     firstStepNumber={1}
-    headingElement="p"
     steps={
       Array [
         Object {
@@ -525,39 +499,26 @@ exports[`statusCheckState initial state - no check has been attempted 1`] = `
         },
         Object {
           "children": <React.Fragment>
-            <EuiFlexGroup
+            <ForwardRef
               alignItems="center"
-              component="div"
-              direction="row"
-              gutterSize="l"
               justifyContent="spaceBetween"
-              responsive={true}
-              wrap={false}
             >
-              <EuiFlexItem
-                component="div"
-                grow={true}
-              >
+              <EuiFlexItem>
                 <Content
                   text="custom status check description"
                 />
               </EuiFlexItem>
               <EuiFlexItem
-                component="div"
                 grow={false}
               >
                 <EuiButton
-                  color="primary"
-                  fill={false}
-                  iconSide="left"
                   isLoading={true}
                   onClick={[Function]}
-                  type="button"
                 >
                   custom btn label
                 </EuiButton>
               </EuiFlexItem>
-            </EuiFlexGroup>
+            </ForwardRef>
             <EuiSpacer
               size="s"
             />
@@ -573,28 +534,33 @@ exports[`statusCheckState initial state - no check has been attempted 1`] = `
 `;
 
 exports[`statusCheckState successful status check 1`] = `
-<div
-  className="kuiVerticalRhythmLarge"
->
-  <KuiBar
-    className="kuiVerticalRhythm"
+<div>
+  <EuiFlexGroup
+    justifyContent="spaceBetween"
+    responsive={false}
+    wrap={true}
   >
-    <KuiBarSection>
-      <div
-        className="kuiTitle"
+    <EuiFlexItem
+      grow={false}
+    >
+      <EuiTitle
+        size="m"
       >
-        title1
-      </div>
-    </KuiBarSection>
-    <KuiBarSection />
-  </KuiBar>
+        <h2>
+          title1
+        </h2>
+      </EuiTitle>
+    </EuiFlexItem>
+    <EuiFlexItem
+      grow={false}
+    />
+  </EuiFlexGroup>
   <EuiTabs
-    className="kuiVerticalRhythm"
+    display="default"
     expand={false}
     size="m"
   >
     <EuiTab
-      disabled={false}
       isSelected={true}
       key="0"
       onClick={[Function]}
@@ -602,7 +568,6 @@ exports[`statusCheckState successful status check 1`] = `
       OSX
     </EuiTab>
     <EuiTab
-      disabled={false}
       isSelected={false}
       key="1"
       onClick={[Function]}
@@ -615,7 +580,6 @@ exports[`statusCheckState successful status check 1`] = `
   />
   <EuiSteps
     firstStepNumber={1}
-    headingElement="p"
     steps={
       Array [
         Object {
@@ -646,45 +610,31 @@ exports[`statusCheckState successful status check 1`] = `
         },
         Object {
           "children": <React.Fragment>
-            <EuiFlexGroup
+            <ForwardRef
               alignItems="center"
-              component="div"
-              direction="row"
-              gutterSize="l"
               justifyContent="spaceBetween"
-              responsive={true}
-              wrap={false}
             >
-              <EuiFlexItem
-                component="div"
-                grow={true}
-              >
+              <EuiFlexItem>
                 <Content
                   text="custom status check description"
                 />
               </EuiFlexItem>
               <EuiFlexItem
-                component="div"
                 grow={false}
               >
                 <EuiButton
-                  color="primary"
-                  fill={false}
-                  iconSide="left"
                   isLoading={false}
                   onClick={[Function]}
-                  type="button"
                 >
                   custom btn label
                 </EuiButton>
               </EuiFlexItem>
-            </EuiFlexGroup>
+            </ForwardRef>
             <EuiSpacer
               size="s"
             />
             <EuiCallOut
               color="success"
-              size="m"
               title="custom success msg"
             />
           </React.Fragment>,

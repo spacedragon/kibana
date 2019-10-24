@@ -17,19 +17,20 @@
  * under the License.
  */
 
+import Fs from 'fs';
+import { promisify } from 'util';
+
 import { download } from './download';
-import Promise from 'bluebird';
 import path from 'path';
 import { cleanPrevious, cleanArtifacts } from './cleanup';
 import { extract, getPackData } from './pack';
 import { renamePlugin } from './rename';
 import { sync as rimrafSync } from 'rimraf';
 import { errorIfXPackInstall } from '../lib/error_if_x_pack';
-import { existingInstall, rebuildCache, assertVersion } from './kibana';
+import { existingInstall, assertVersion } from './kibana';
 import { prepareExternalProjectDependencies } from '@kbn/pm';
-import mkdirp from 'mkdirp';
 
-const mkdir = Promise.promisify(mkdirp);
+const mkdir = promisify(Fs.mkdir);
 
 export default async function install(settings, logger) {
   try {
@@ -37,7 +38,7 @@ export default async function install(settings, logger) {
 
     await cleanPrevious(settings, logger);
 
-    await mkdir(settings.workingPath);
+    await mkdir(settings.workingPath, { recursive: true });
 
     await download(settings, logger);
 
@@ -55,14 +56,10 @@ export default async function install(settings, logger) {
 
     await renamePlugin(settings.workingPath, path.join(settings.pluginDir, settings.plugins[0].name));
 
-    if (settings.optimize) {
-      await rebuildCache(settings, logger);
-    }
-
     logger.log('Plugin installation complete');
   } catch (err) {
     logger.error(`Plugin installation was unsuccessful due to error "${err.message}"`);
     cleanArtifacts(settings);
-    process.exit(70); // eslint-disable-line no-process-exit
+    process.exit(70);
   }
 }

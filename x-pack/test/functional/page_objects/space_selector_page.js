@@ -4,7 +4,7 @@
  * you may not use this file except in compliance with the Elastic License.
  */
 
-import expect from 'expect.js';
+import expect from '@kbn/expect';
 
 export function SpaceSelectorPageProvider({ getService, getPageObjects }) {
   const retry = getService('retry');
@@ -12,7 +12,7 @@ export function SpaceSelectorPageProvider({ getService, getPageObjects }) {
   const testSubjects = getService('testSubjects');
   const browser = getService('browser');
   const find = getService('find');
-  const PageObjects = getPageObjects(['common', 'home', 'security']);
+  const PageObjects = getPageObjects(['common', 'header', 'security']);
 
   class SpaceSelectorPage {
     async initTests() {
@@ -28,23 +28,20 @@ export function SpaceSelectorPageProvider({ getService, getPageObjects }) {
     }
 
     async expectHomePage(spaceId) {
+      return await this.expectRoute(spaceId, `/app/kibana#/home`);
+    }
+
+    async expectRoute(spaceId, route) {
       return await retry.try(async () => {
-        log.debug(`expectHomePage(${spaceId})`);
-        await this.dismissWelcomeScreen();
+        log.debug(`expectRoute(${spaceId}, ${route})`);
         await find.byCssSelector('[data-test-subj="kibanaChrome"] nav:not(.ng-hide) ', 20000);
         const url = await browser.getCurrentUrl();
         if (spaceId === 'default') {
-          expect(url).to.contain(`/app/kibana#/home`);
+          expect(url).to.contain(route);
         } else {
-          expect(url).to.contain(`/s/${spaceId}/app/kibana#/home`);
+          expect(url).to.contain(`/s/${spaceId}${route}`);
         }
       });
-    }
-
-    async dismissWelcomeScreen() {
-      if (await PageObjects.home.isWelcomeShowing()) {
-        await PageObjects.home.hideWelcomeScreen();
-      }
     }
 
     async openSpacesNav() {

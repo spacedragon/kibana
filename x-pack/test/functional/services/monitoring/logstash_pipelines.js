@@ -13,16 +13,16 @@ export function MonitoringLogstashPipelinesProvider({ getService, getPageObjects
 
   const SUBJ_LISTING_PAGE = 'logstashPipelinesListing';
 
-  const SUBJ_TABLE_CONTAINER = 'logstashPipelinesTableContainer';
-  const SUBJ_TABLE_NO_DATA = `${SUBJ_TABLE_CONTAINER} monitoringTableNoData`;
-  const SUBJ_SEARCH_BAR = `${SUBJ_TABLE_CONTAINER} monitoringTableToolBar`;
+  const SUBJ_TABLE_CONTAINER = 'monitoringLogstashPipelinesTableContainer';
+  const SUBJ_TABLE_NO_DATA = `${SUBJ_TABLE_CONTAINER} > monitoringTableNoData`;
+  const SUBJ_SEARCH_BAR = `${SUBJ_TABLE_CONTAINER} > monitoringTableToolBar`;
 
-  const SUBJ_TABLE_SORT_EVENTS_EMITTED_RATE_COL = `${SUBJ_TABLE_CONTAINER} tableHeaderCell-eventsEmittedRate`;
+  const SUBJ_TABLE_SORT_EVENTS_EMITTED_RATE_COL = `${SUBJ_TABLE_CONTAINER} > tableHeaderCell_latestThroughput_1`;
+  const SUBJ_TABLE_SORT_ID_COL = `${SUBJ_TABLE_CONTAINER} > tableHeaderCell_id_0`;
 
-  const SUBJ_TABLE_BODY = 'logstashPipelinesTableBody';
-  const SUBJ_PIPELINES_IDS = `${SUBJ_TABLE_BODY} id`;
-  const SUBJ_PIPELINES_EVENTS_EMITTED_RATES = `${SUBJ_TABLE_BODY} eventsEmittedRate`;
-  const SUBJ_PIPELINES_NODE_COUNTS = `${SUBJ_TABLE_BODY} nodeCount`;
+  const SUBJ_PIPELINES_IDS = `${SUBJ_TABLE_CONTAINER} > id`;
+  const SUBJ_PIPELINES_EVENTS_EMITTED_RATES = `${SUBJ_TABLE_CONTAINER} > eventsEmittedRate`;
+  const SUBJ_PIPELINES_NODE_COUNTS = `${SUBJ_TABLE_CONTAINER} > nodeCount`;
 
   return new class LogstashPipelines {
     async isOnListing() {
@@ -31,7 +31,7 @@ export function MonitoringLogstashPipelinesProvider({ getService, getPageObjects
     }
 
     getRows() {
-      return PageObjects.monitoring.tableGetRows(SUBJ_TABLE_BODY);
+      return PageObjects.monitoring.tableGetRowsFromContainer(SUBJ_TABLE_CONTAINER);
     }
 
     async getPipelinesAll() {
@@ -52,6 +52,12 @@ export function MonitoringLogstashPipelinesProvider({ getService, getPageObjects
           }
         ];
       }, []);
+    }
+
+    async clickIdCol() {
+      const headerCell = await testSubjects.find(SUBJ_TABLE_SORT_ID_COL);
+      const button = await headerCell.findByTagName('button');
+      return button.click();
     }
 
     async clickEventsEmittedRateCol() {

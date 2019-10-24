@@ -7,7 +7,6 @@
 export function MonitoringPageProvider({ getPageObjects, getService }) {
   const PageObjects = getPageObjects(['common', 'header']);
   const testSubjects = getService('testSubjects');
-  const retry = getService('retry');
 
   return new class MonitoringPage {
     async navigateTo() {
@@ -23,11 +22,9 @@ export function MonitoringPageProvider({ getPageObjects, getService }) {
     }
 
     async assertTableNoData(subj) {
-      await retry.try(async () => {
-        if (!await testSubjects.exists(subj)) {
-          throw new Error('Expected to find the no data message');
-        }
-      });
+      if (!await testSubjects.exists(subj)) {
+        throw new Error('Expected to find the no data message');
+      }
     }
 
     async tableGetRows(subj) {
@@ -35,8 +32,16 @@ export function MonitoringPageProvider({ getPageObjects, getService }) {
       return table.findAllByTagName('tr');
     }
 
+    async tableGetRowsFromContainer(subj) {
+      const table = await testSubjects.find(subj);
+      const tbody = await table.findByTagName('tbody');
+      return tbody.findAllByTagName('tr');
+    }
+
     async tableSetFilter(subj, text) {
-      return await testSubjects.setValue(subj, text);
+      await testSubjects.setValue(subj, text);
+      await PageObjects.common.pressEnterKey();
+      await PageObjects.header.waitUntilLoadingHasFinished();
     }
 
     async tableClearFilter(subj) {

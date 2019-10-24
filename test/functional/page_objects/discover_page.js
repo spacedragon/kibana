@@ -17,7 +17,7 @@
  * under the License.
  */
 
-import expect from 'expect.js';
+import expect from '@kbn/expect';
 
 export function DiscoverPageProvider({ getService, getPageObjects }) {
   const log = getService('log');
@@ -27,6 +27,10 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
   const flyout = getService('flyout');
   const PageObjects = getPageObjects(['header', 'common']);
   const browser = getService('browser');
+  const globalNav = getService('globalNav');
+  const config = getService('config');
+  const defaultFindTimeout = config.get('timeouts.find');
+  const comboBox = getService('comboBox');
 
   class DiscoverPage {
     async getQueryField() {
@@ -38,7 +42,7 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
     }
 
     async getChartTimespan() {
-      const el = await find.byCssSelector('.small > span:nth-child(1)');
+      const el = await find.byCssSelector('.small > label[for="dscResultsIntervalSelector"]');
       return await el.getVisibleText();
     }
 
@@ -59,9 +63,14 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
       });
     }
 
+    async waitUntilSearchingHasFinished() {
+      const spinner = await testSubjects.find('loadingSpinner');
+      await find.waitForElementHidden(spinner, defaultFindTimeout * 10);
+    }
+
     async getColumnHeaders() {
       const headerElements = await testSubjects.findAll('docTableHeaderField');
-      return await Promise.all(headerElements.map(el => el.getVisibleText()));
+      return await Promise.all(headerElements.map(async (el) => await el.getVisibleText()));
     }
 
     async openLoadSavedSearchPanel() {
@@ -81,22 +90,17 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
     }
 
     async closeLoadSaveSearchPanel() {
-      const isOpen = await testSubjects.exists('loadSearchForm');
-      if (!isOpen) {
-        return;
-      }
-
-      await flyout.close('loadSearchForm');
+      await flyout.ensureClosed('loadSearchForm');
     }
 
     async hasSavedSearch(searchName) {
-      const searchLink = await find.byPartialLinkText(searchName);
+      const searchLink = await find.byButtonText(searchName);
       return searchLink.isDisplayed();
     }
 
     async loadSavedSearch(searchName) {
       await this.openLoadSavedSearchPanel();
-      const searchLink = await find.byPartialLinkText(searchName);
+      const searchLink = await find.byButtonText(searchName);
       await searchLink.click();
       await PageObjects.header.waitUntilLoadingHasFinished();
     }
@@ -113,81 +117,50 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
       await testSubjects.click('discoverOpenButton');
     }
 
-    async clickHistogramBar(i) {
-      const bars = await find.allByCssSelector(`.series.histogram rect`);
-      await bars[i].click();
+    async clickHistogramBar() {
+      const el = await find.byCssSelector('.echChart canvas:last-of-type');
+
+      await browser.getActions()
+        .move({ x: 200, y: 20, origin: el._webElement })
+        .click()
+        .perform();
     }
 
-    async brushHistogram(from, to) {
-      const bars = await find.allByCssSelector('.series.histogram rect');
-      await browser.moveMouseTo(bars[from], 0, -5);
-      await browser.pressMouseButton();
-      await browser.moveMouseTo(bars[to], 0, -5);
-      await browser.releaseMouseButton();
+    async brushHistogram() {
+      const el = await find.byCssSelector('.echChart canvas:last-of-type');
+      await browser.dragAndDrop(
+        { location: el, offset: { x: 200, y: 20 } },
+        { location: el, offset: { x: 400, y: 30 } }
+      );
     }
 
     async getCurrentQueryName() {
-      return await testSubjects.getVisibleText('discoverCurrentQuery');
+      return await globalNav.getLastBreadcrumb();
     }
 
-    async getBarChartXTicks() {
-      const elements = await find.allByCssSelector('.x.axis.CategoryAxis-1 > .tick > text');
-      return await Promise.all(elements.map(async el => el.getVisibleText()));
-    }
-
-    getBarChartData() {
+    async getBarChartData() {
       let yAxisLabel = 0;
-      let yAxisHeight;
 
-      return PageObjects.header.waitUntilLoadingHasFinished()
-        .then(() => {
-          return find.byCssSelector('div.visAxis__splitAxes--y > div > svg > g > g:last-of-type');
-        })
-        .then(function setYAxisLabel(y) {
-          return y
-            .getVisibleText()
-            .then(function (yLabel) {
-              yAxisLabel = yLabel.replace(',', '');
-              log.debug('yAxisLabel = ' + yAxisLabel);
-              return yLabel;
-            });
-        })
-      // 2). find and save the y-axis pixel size (the chart height)
-        .then(function getRect() {
-          return find.byCssSelector('rect.background')
-            .then(function getRectHeight(chartAreaObj) {
-              return chartAreaObj
-                .getAttribute('height')
-                .then(function (theHeight) {
-                  yAxisHeight = theHeight; // - 5; // MAGIC NUMBER - clipPath extends a bit above the top of the y-axis and below x-axis
-                  log.debug('theHeight = ' + theHeight);
-                  return theHeight;
-                });
-            });
-        })
-      // 3). get the visWrapper__chart elements
-        .then(function () {
-          // #kibana-body > div.content > div > div > div > div.visEditor__canvas > visualize > div.visChart > div > div.visWrapper__column > div.visWrapper__chart > div > svg > g > g.series.\30 > rect:nth-child(1)
-          return find.allByCssSelector('svg > g > g.series > rect') // rect
-            .then(function (chartTypes) {
-              function getChartType(chart) {
-                return chart
-                  .getAttribute('height')
-                  .then(function (barHeight) {
-                    return Math.round(barHeight / yAxisHeight * yAxisLabel);
-                  });
-              }
-              const getChartTypesPromises = chartTypes.map(getChartType);
-              return Promise.all(getChartTypesPromises);
-            })
-            .then(function (bars) {
-              return bars;
-            });
-        });
+      await PageObjects.header.waitUntilLoadingHasFinished();
+      const y = await find.byCssSelector('div.visAxis__splitAxes--y > div > svg > g > g:last-of-type');
+      const yLabel = await y.getVisibleText();
+      yAxisLabel = yLabel.replace(',', '');
+      log.debug('yAxisLabel = ' + yAxisLabel);
+      // #kibana-body > div.content > div > div > div > div.visEditor__canvas > visualize > div.visChart > div > div.visWrapper__column > div.visWrapper__chart > div > svg > g > g.series.\30 > rect:nth-child(1)
+      const svg = await find.byCssSelector('div.chart > svg');
+      const $ = await svg.parseDomContent();
+      const yAxisHeight = $('rect.background').attr('height');
+      log.debug('theHeight = ' + yAxisHeight);
+      const bars = $('g > g.series > rect').toArray().map(chart => {
+        const barHeight = $(chart).attr('height');
+        return Math.round(barHeight / yAxisHeight * yAxisLabel);
+      });
+
+      return bars;
     }
 
     async getChartInterval() {
-      const selectedValue = await testSubjects.getProperty('discoverIntervalSelect', 'value');
+      const selectedValue = await testSubjects.getAttribute('discoverIntervalSelect', 'value');
       const selectedOption = await find.byCssSelector('option[value="' + selectedValue + '"]');
       return selectedOption.getVisibleText();
     }
@@ -219,6 +192,13 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
       return await row.getVisibleText();
     }
 
+    async getDocTableField(index) {
+      const field = await find.byCssSelector(
+        `tr.kbnDocTable__row:nth-child(${index}) > [data-test-subj='docTableField']`
+      );
+      return await field.getVisibleText();
+    }
+
     async clickDocSortDown() {
       await find.clickByCssSelector('.fa-sort-down');
     }
@@ -243,22 +223,15 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
 
     async getSidebarWidth() {
       const sidebar = await find.byCssSelector('.sidebar-list');
-      return await sidebar.getProperty('clientWidth');
+      return await sidebar.getAttribute('clientWidth');
     }
 
     async hasNoResults() {
       return await testSubjects.exists('discoverNoResults');
     }
 
-    async getNoResultsTimepicker() {
-      return await testSubjects.find('discoverNoResultsTimefilter');
-    }
-
-    hasNoResultsTimepicker() {
-      return this
-        .getNoResultsTimepicker()
-        .then(() => true)
-        .catch(() => false);
+    async hasNoResultsTimepicker() {
+      return await testSubjects.exists('discoverNoResultsTimefilter');
     }
 
     async clickFieldListItem(field) {
@@ -276,6 +249,14 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
       });
     }
 
+    async expectFieldListItemVisualize(field) {
+      await testSubjects.existOrFail(`fieldVisualize-${field}`);
+    }
+
+    async expectMissingFieldListItemVisualize(field) {
+      await testSubjects.missingOrFail(`fieldVisualize-${field}`, { allowHidden: true });
+    }
+
     async clickFieldListPlusFilter(field, value) {
       // this method requires the field details to be open from clickFieldListItem()
       // testSubjects.find doesn't handle spaces in the data-test-subj value
@@ -291,16 +272,9 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
     }
 
     async selectIndexPattern(indexPattern) {
-      await find.clickByCssSelector('.index-pattern-selection');
-      await find.setValue('.ui-select-search', indexPattern + '\n');
+      await testSubjects.click('indexPattern-switch-link');
+      await comboBox.set('index-pattern-selection', indexPattern);
       await PageObjects.header.waitUntilLoadingHasFinished();
-    }
-
-    async removeAllFilters() {
-      await testSubjects.click('showFilterActions');
-      await testSubjects.click('removeAllFilters');
-      await PageObjects.header.waitUntilLoadingHasFinished();
-      await PageObjects.common.waitUntilUrlIncludes('filters:!()');
     }
 
     async removeHeaderColumn(name) {
@@ -320,7 +294,7 @@ export function DiscoverPageProvider({ getService, getPageObjects }) {
       const fieldFilterFormExists = await testSubjects.exists('discoverFieldFilter');
       if (fieldFilterFormExists) {
         await testSubjects.click('toggleFieldFilterButton');
-        await testSubjects.missingOrFail('discoverFieldFilter');
+        await testSubjects.missingOrFail('discoverFieldFilter', { allowHidden: true });
       }
     }
 

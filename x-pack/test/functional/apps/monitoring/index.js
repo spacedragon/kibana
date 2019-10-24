@@ -8,6 +8,8 @@ export default function ({ loadTestFile }) {
   describe('Monitoring app', function () {
     this.tags('ciGroup1');
 
+    loadTestFile(require.resolve('./feature_controls'));
+
     loadTestFile(require.resolve('./cluster/list'));
     loadTestFile(require.resolve('./cluster/overview'));
     loadTestFile(require.resolve('./cluster/alerts'));
@@ -36,5 +38,7 @@ export default function ({ loadTestFile }) {
     loadTestFile(require.resolve('./beats/overview'));
     loadTestFile(require.resolve('./beats/listing'));
     loadTestFile(require.resolve('./beats/beat_detail'));
+
+    loadTestFile(require.resolve('./time_filter'));
   });
 }

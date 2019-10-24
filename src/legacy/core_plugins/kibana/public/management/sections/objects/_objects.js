@@ -21,14 +21,14 @@ import { savedObjectManagementRegistry } from '../../saved_object_registry';
 import objectIndexHTML from './_objects.html';
 import uiRoutes from 'ui/routes';
 import chrome from 'ui/chrome';
-import { toastNotifications } from 'ui/notify';
 import { SavedObjectsClientProvider } from 'ui/saved_objects';
 import { uiModules } from 'ui/modules';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
 import { ObjectsTable } from './components/objects_table';
-import { getInAppUrl } from './lib/get_in_app_url';
-import { I18nProvider } from '@kbn/i18n/react';
+import { I18nContext } from 'ui/i18n';
+import { get } from 'lodash';
+import { npStart } from 'ui/new_platform';
 
 import { getIndexBreadcrumbs } from './breadcrumbs';
 
@@ -40,13 +40,11 @@ function updateObjectsTable($scope, $injector) {
   const $http = $injector.get('$http');
   const kbnUrl = $injector.get('kbnUrl');
   const config = $injector.get('config');
+  const confirmModalPromise = $injector.get('confirmModalPromise');
 
   const savedObjectsClient = Private(SavedObjectsClientProvider);
   const services = savedObjectManagementRegistry.all().map(obj => $injector.get(obj.service));
-  const allServices = savedObjectManagementRegistry.all();
-  const typeToServiceName = type => allServices.reduce((serviceName, service) => {
-    return service.title.includes(type) ? service.service : serviceName;
-  }, null);
+  const uiCapabilites = npStart.core.application.capabilities;
 
   $scope.$$postDigest(() => {
     const node = document.getElementById(REACT_OBJECTS_TABLE_DOM_ELEMENT_ID);
@@ -55,33 +53,29 @@ function updateObjectsTable($scope, $injector) {
     }
 
     render(
-      <I18nProvider>
+      <I18nContext>
         <ObjectsTable
           savedObjectsClient={savedObjectsClient}
+          confirmModalPromise={confirmModalPromise}
           services={services}
           indexPatterns={indexPatterns}
           $http={$http}
           perPageConfig={config.get('savedObjects:perPage')}
           basePath={chrome.getBasePath()}
-          newIndexPatternUrl={kbnUrl.eval('#/management/kibana/index')}
-          getEditUrl={(id, type) => {
-            if (type === 'index-pattern' || type === 'indexPatterns') {
-              return kbnUrl.eval(`#/management/kibana/indices/${id}`);
+          newIndexPatternUrl={kbnUrl.eval('#/management/kibana/index_pattern')}
+          uiCapabilities={uiCapabilites}
+          goInspectObject={object => {
+            if (object.meta.editUrl) {
+              kbnUrl.change(object.meta.editUrl);
+              $scope.$apply();
             }
-            const serviceName = typeToServiceName(type);
-            if (!serviceName) {
-              toastNotifications.addWarning(`Unknown saved object type: ${type}`);
-              return null;
-            }
-
-            return kbnUrl.eval(`#/management/kibana/objects/${serviceName}/${id}`);
           }}
-          goInApp={(id, type) => {
-            kbnUrl.change(getInAppUrl(id, type));
-            $scope.$apply();
+          canGoInApp={object => {
+            const { inAppUrl } = object.meta;
+            return inAppUrl && get(uiCapabilites, inAppUrl.uiCapabilitiesPath);
           }}
         />
-      </I18nProvider>,
+      </I18nContext>,
       node,
     );
   });
@@ -95,7 +89,8 @@ function destroyObjectsTable() {
 uiRoutes
   .when('/management/kibana/objects', {
     template: objectIndexHTML,
-    k7Breadcrumbs: getIndexBreadcrumbs
+    k7Breadcrumbs: getIndexBreadcrumbs,
+    requireUICapability: 'management.kibana.objects',
   })
   .when('/management/kibana/objects/:service', {
     redirectTo: '/management/kibana/objects'

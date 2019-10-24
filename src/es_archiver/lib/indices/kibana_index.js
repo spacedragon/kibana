@@ -1,55 +1,56 @@
 /*
-* Licensed to Elasticsearch B.V. under one or more contributor
-* license agreements. See the NOTICE file distributed with
-* this work for additional information regarding copyright
-* ownership. Elasticsearch B.V. licenses this file to you under
-* the Apache License, Version 2.0 (the "License"); you may
-* not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*    http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 import _ from 'lodash';
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { toArray } from 'rxjs/operators';
-import wreck from 'wreck';
 
 import { deleteIndex } from './delete_index';
-import { collectUiExports } from '../../../ui/ui_exports';
-import { KibanaMigrator } from '../../../server/saved_objects/migrations';
-import { findPluginSpecs } from '../../../plugin_discovery';
+import { collectUiExports } from '../../../legacy/ui/ui_exports';
+import { KibanaMigrator } from '../../../core/server/saved_objects/migrations';
+import { findPluginSpecs } from '../../../legacy/plugin_discovery';
 
 /**
- * This is an expensive operation, so we'll ensure it only happens once
+ * Load the uiExports for a Kibana instance, only load uiExports from xpack if
+ * it is enabled in the Kibana server.
  */
-const buildUiExports = _.once(async () => {
+const getUiExports = async (kibanaPluginIds) => {
+  const xpackEnabled = kibanaPluginIds.includes('xpack_main');
+
   const { spec$ } = await findPluginSpecs({
     plugins: {
       scanDirs: [path.resolve(__dirname, '../../../legacy/core_plugins')],
-      paths: [path.resolve(__dirname, '../../../../x-pack')],
+      paths: xpackEnabled ? [path.resolve(__dirname, '../../../../x-pack')] : [],
     },
   });
 
   const specs = await spec$.pipe(toArray()).toPromise();
   return collectUiExports(specs);
-});
+};
 
 /**
  * Deletes all indices that start with `.kibana`
  */
 export async function deleteKibanaIndices({ client, stats, log }) {
-  const kibanaIndices = await client.cat.indices({ index: '.kibana*', format: 'json' });
-  const indexNames = kibanaIndices.map(x => x.index);
+  const indexNames = await fetchKibanaIndices(client);
   if (!indexNames.length) {
     return;
   }
@@ -74,80 +75,119 @@ export async function deleteKibanaIndices({ client, stats, log }) {
  * builds up an object that implements just enough of the kbnMigrations interface
  * as is required by migrations.
  */
-export async function migrateKibanaIndex({ client, log }) {
-  const uiExports = await buildUiExports();
-  const version = await loadElasticVersion();
+export async function migrateKibanaIndex({ client, log, kibanaPluginIds }) {
+  const uiExports = await getUiExports(kibanaPluginIds);
+  const kibanaVersion = await loadKibanaVersion();
+
   const config = {
-    'kibana.index': '.kibana',
-    'migrations.scrollDuration': '5m',
-    'migrations.batchSize': 100,
-    'migrations.pollInterval': 100,
-  };
-  const ready = async () => undefined;
-  const elasticsearch = {
-    getCluster: () => ({
-      callWithInternalUser: (path, ...args) => _.get(client, path).call(client, ...args),
-    }),
-    waitUntilReady: ready,
+    'xpack.task_manager.index': '.kibana_task_manager',
   };
 
-  const server = {
-    log: ([logType, messageType], ...args) => log[logType](`[${messageType}] ${args.join(' ')}`),
-    config: () => ({ get: (path) => config[path] }),
-    plugins: { elasticsearch },
+  const migratorOptions = {
+    config: { get: path => config[path] },
+    savedObjectsConfig: {
+      'scrollDuration': '5m',
+      'batchSize': 100,
+      'pollInterval': 100,
+    },
+    kibanaConfig: {
+      index: '.kibana',
+    },
+    logger: {
+      trace: log.verbose.bind(log),
+      debug: log.debug.bind(log),
+      info: log.info.bind(log),
+      warn: log.warning.bind(log),
+      error: log.error.bind(log),
+    },
+    version: kibanaVersion,
+    savedObjectSchemas: uiExports.savedObjectSchemas,
+    savedObjectMappings: uiExports.savedObjectMappings,
+    savedObjectMigrations: uiExports.savedObjectMigrations,
+    savedObjectValidations: uiExports.savedObjectValidations,
+    callCluster: (path, ...args) => _.get(client, path).call(client, ...args),
   };
 
-  const kbnServer = {
-    server,
-    version,
-    uiExports,
-    ready,
-  };
-
-  return await new KibanaMigrator({ kbnServer }).awaitMigration();
+  return await new KibanaMigrator(migratorOptions).runMigrations();
 }
 
-async function loadElasticVersion() {
+async function loadKibanaVersion() {
   const readFile = promisify(fs.readFile);
   const packageJson = await readFile(path.join(__dirname, '../../../../package.json'));
   return JSON.parse(packageJson).version;
 }
 
-const spacesEnabledCache = new Map();
-export async function isSpacesEnabled({ kibanaUrl }) {
-  if (!spacesEnabledCache.has(kibanaUrl)) {
-    const statuses = await getKibanaStatuses({ kibanaUrl });
-    spacesEnabledCache.set(kibanaUrl, !!statuses.find(({ id }) => id.startsWith('plugin:spaces@')));
-  }
-
-  return spacesEnabledCache.get(kibanaUrl);
+/**
+ * Migrations mean that the Kibana index will look something like:
+ * .kibana, .kibana_1, .kibana_323, etc. This finds all indices starting
+ * with .kibana, then filters out any that aren't actually Kibana's core
+ * index (e.g. we don't want to remove .kibana_task_manager or the like).
+ *
+ * @param {string} index
+ */
+async function fetchKibanaIndices(client) {
+  const kibanaIndices = await client.cat.indices({ index: '.kibana*', format: 'json' });
+  const isKibanaIndex = index => /^\.kibana(:?_\d*)?$/.test(index);
+  return kibanaIndices.map(x => x.index).filter(isKibanaIndex);
 }
 
-async function getKibanaStatuses({ kibanaUrl }) {
-  try {
-    const { payload } = await wreck.get('/api/status', {
-      baseUrl: kibanaUrl,
-      json: true
+export async function cleanKibanaIndices({ client, stats, log, kibanaPluginIds }) {
+  if (!kibanaPluginIds.includes('spaces')) {
+    return await deleteKibanaIndices({
+      client,
+      stats,
+      log,
     });
-    return payload.status.statuses;
-  } catch (error) {
-    throw new Error(`Unable to fetch Kibana status API response from Kibana at ${kibanaUrl}`);
   }
+
+  while (true) {
+    const resp = await client.deleteByQuery({
+      index: `.kibana`,
+      body: {
+        query: {
+          bool: {
+            must_not: {
+              ids: {
+                values: ['space:default'],
+              },
+            },
+          },
+        },
+      },
+      ignore: [409]
+    });
+
+    if (resp.total !== resp.deleted) {
+      log.warning('delete by query deleted %d of %d total documents, trying again', resp.deleted, resp.total);
+      continue;
+    }
+
+    break;
+  }
+
+  log.warning(
+    `since spaces are enabled, all objects other than the default space were deleted from ` +
+      `.kibana rather than deleting the whole index`
+  );
+
+  stats.deletedIndex('.kibana');
 }
 
 export async function createDefaultSpace({ index, client }) {
-  await client.index({
+  await client.create({
     index,
-    type: 'doc',
+    type: '_doc',
     id: 'space:default',
+    ignore: 409,
     body: {
       type: 'space',
       updated_at: new Date().toISOString(),
       space: {
         name: 'Default Space',
         description: 'This is the default space',
-        _reserved: true
-      }
-    }
+        disabledFeatures: [],
+        _reserved: true,
+      },
+    },
   });
 }

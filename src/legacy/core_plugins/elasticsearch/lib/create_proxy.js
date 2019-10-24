@@ -17,60 +17,53 @@
  * under the License.
  */
 
-import createAgent from './create_agent';
-import mapUri from './map_uri';
-import { assign } from 'lodash';
+import Joi from 'joi';
+import { abortableRequestHandler } from './abortable_request_handler';
 
-export function createPath(prefix, path) {
-  path = path[0] === '/' ? path : `/${path}`;
-  prefix = prefix[0] === '/' ? prefix : `/${prefix}`;
+export function createProxy(server) {
+  const { callWithRequest } = server.plugins.elasticsearch.getCluster('data');
 
-  return `${prefix}${path}`;
-}
+  server.route({
+    method: 'POST',
+    path: '/elasticsearch/_msearch',
+    config: {
+      payload: {
+        parse: 'gunzip'
+      }
+    },
+    handler: abortableRequestHandler((signal, req, h) => {
+      const { query, payload } = req;
+      return callWithRequest(req, 'transport.request', {
+        path: '/_msearch',
+        method: 'POST',
+        query,
+        body: payload.toString('utf8')
+      }, { signal }).finally(r => h.response(r));
+    })
+  });
 
-export function createProxy(server, method, path, config) {
-  const proxies = new Map([
-    ['/elasticsearch', server.plugins.elasticsearch.getCluster('data')],
-  ]);
-
-  const responseHandler = function (err, upstreamResponse) {
-    if (err) {
-      throw err;
-    }
-
-    if (upstreamResponse.headers.location) {
-      // TODO: Workaround for #8705 until hapi has been updated to >= 15.0.0
-      upstreamResponse.headers.location = encodeURI(upstreamResponse.headers.location);
-    }
-
-    return upstreamResponse;
-  };
-
-  for (const [proxyPrefix, cluster] of proxies) {
-    const options = {
-      method,
-      path: createPath(proxyPrefix, path),
-      config: {
-        timeout: {
-          socket: cluster.getRequestTimeout()
-        }
-      },
-      handler: {
-        proxy: {
-          mapUri: mapUri(cluster, proxyPrefix),
-          agent: createAgent({
-            url: cluster.getUrl(),
-            ssl: cluster.getSsl()
-          }),
-          xforward: true,
-          timeout: cluster.getRequestTimeout(),
-          onResponse: responseHandler
-        }
-      },
-    };
-
-    assign(options.config, config);
-
-    server.route(options);
-  }
+  server.route({
+    method: 'POST',
+    path: '/elasticsearch/{index}/_search',
+    config: {
+      validate: {
+        params: Joi.object().keys({
+          index: Joi.string().required()
+        })
+      }
+    },
+    handler: abortableRequestHandler(async (signal, req) => {
+      const { query, payload: body } = req;
+      try {
+        return await callWithRequest(req, 'transport.request', {
+          path: `/${encodeURIComponent(req.params.index)}/_search`,
+          method: 'POST',
+          query,
+          body
+        }, { signal });
+      } catch (error) {
+        return JSON.parse(error.response);
+      }
+    })
+  });
 }

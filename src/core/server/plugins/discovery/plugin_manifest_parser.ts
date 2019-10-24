@@ -22,7 +22,7 @@ import { resolve } from 'path';
 import { coerce } from 'semver';
 import { promisify } from 'util';
 import { isConfigPath, PackageInfo } from '../../config';
-import { PluginManifest } from '../plugin';
+import { PluginManifest } from '../types';
 import { PluginDiscoveryError } from './plugin_discovery_error';
 
 const fsReadFileAsync = promisify(readFile);
@@ -37,6 +37,27 @@ const MANIFEST_FILE_NAME = 'kibana.json';
  * The special "kibana" version can be used by the plugins to be always compatible.
  */
 const ALWAYS_COMPATIBLE_VERSION = 'kibana';
+
+/**
+ * Names of the known manifest fields.
+ */
+const KNOWN_MANIFEST_FIELDS = (() => {
+  // We use this trick to have type safety around the keys we use, if we forget to
+  // add a new key here or misspell existing one, TypeScript compiler will complain.
+  // We do this once at run time, so performance impact is negligible.
+  const manifestFields: { [P in keyof PluginManifest]: boolean } = {
+    id: true,
+    kibanaVersion: true,
+    version: true,
+    configPath: true,
+    requiredPlugins: true,
+    optionalPlugins: true,
+    ui: true,
+    server: true,
+  };
+
+  return new Set(Object.keys(manifestFields));
+})();
 
 /**
  * Tries to load and parse the plugin manifest file located at the provided plugin
@@ -77,6 +98,15 @@ export async function parseManifest(pluginPath: string, packageInfo: PackageInfo
     );
   }
 
+  // Plugin id can be used as a config path or as a logger context and having dots
+  // in there may lead to various issues, so we forbid that.
+  if (manifest.id.includes('.')) {
+    throw PluginDiscoveryError.invalidManifest(
+      manifestPath,
+      new Error('Plugin "id" must not include `.` characters.')
+    );
+  }
+
   if (!manifest.version || typeof manifest.version !== 'string') {
     throw PluginDiscoveryError.invalidManifest(
       manifestPath,
@@ -88,9 +118,7 @@ export async function parseManifest(pluginPath: string, packageInfo: PackageInfo
     throw PluginDiscoveryError.invalidManifest(
       manifestPath,
       new Error(
-        `The "configPath" in plugin manifest for "${
-          manifest.id
-        }" should either be a string or an array of strings.`
+        `The "configPath" in plugin manifest for "${manifest.id}" should either be a string or an array of strings.`
       )
     );
   }
@@ -103,11 +131,28 @@ export async function parseManifest(pluginPath: string, packageInfo: PackageInfo
     throw PluginDiscoveryError.incompatibleVersion(
       manifestPath,
       new Error(
-        `Plugin "${
-          manifest.id
-        }" is only compatible with Kibana version "${expectedKibanaVersion}", but used Kibana version is "${
-          packageInfo.version
-        }".`
+        `Plugin "${manifest.id}" is only compatible with Kibana version "${expectedKibanaVersion}", but used Kibana version is "${packageInfo.version}".`
+      )
+    );
+  }
+
+  const includesServerPlugin = typeof manifest.server === 'boolean' ? manifest.server : false;
+  const includesUiPlugin = typeof manifest.ui === 'boolean' ? manifest.ui : false;
+  if (!includesServerPlugin && !includesUiPlugin) {
+    throw PluginDiscoveryError.invalidManifest(
+      manifestPath,
+      new Error(
+        `Both "server" and "ui" are missing or set to "false" in plugin manifest for "${manifest.id}", but at least one of these must be set to "true".`
+      )
+    );
+  }
+
+  const unknownManifestKeys = Object.keys(manifest).filter(key => !KNOWN_MANIFEST_FIELDS.has(key));
+  if (unknownManifestKeys.length > 0) {
+    throw PluginDiscoveryError.invalidManifest(
+      manifestPath,
+      new Error(
+        `Manifest for plugin "${manifest.id}" contains the following unrecognized properties: ${unknownManifestKeys}.`
       )
     );
   }
@@ -119,7 +164,8 @@ export async function parseManifest(pluginPath: string, packageInfo: PackageInfo
     configPath: manifest.configPath || manifest.id,
     requiredPlugins: Array.isArray(manifest.requiredPlugins) ? manifest.requiredPlugins : [],
     optionalPlugins: Array.isArray(manifest.optionalPlugins) ? manifest.optionalPlugins : [],
-    ui: typeof manifest.ui === 'boolean' ? manifest.ui : false,
+    ui: includesUiPlugin,
+    server: includesServerPlugin,
   };
 }
 

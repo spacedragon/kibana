@@ -18,7 +18,6 @@
  */
 
 export function MonitoringPageProvider({ getService }) {
-  const testSubjects = getService('testSubjects');
   const find = getService('find');
 
   class MonitoringPage {
@@ -27,19 +26,9 @@ export function MonitoringPageProvider({ getService }) {
       return await el.getVisibleText();
     }
 
-    dismissWelcome() {
-      return testSubjects.click('notifierDismissButton');
-    }
-
-    async getToasterContents() {
-      const el = await find.byCssSelector('div.toaster-container');
-      return await el.getVisibleText();
-    }
-
     async clickOptOut() {
       return find.clickByLinkText('Opt out here');
     }
-
   }
 
   return new MonitoringPage();
